@@ -7,3 +7,4 @@ python-dotenv
 pydantic
 websockets
 passlib[bcrypt]
+bcrypt<4.0.0
