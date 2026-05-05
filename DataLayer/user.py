@@ -9,6 +9,8 @@ async def create_user(db: AsyncSession, first_name: str, last_name: str, email: 
     db.add(new_user)
     await db.flush() # we make flush to get user_id and avoid "Inconsistent State" ... check both insert successfully saved ...
     new_user_login_inf = UserLoginINF(user_id=new_user.user_id, email=email, password_hash=password_hash)
+    new_user_state_inf = UserStatus(user_id=new_user.user_id, state='offline')
+    db.add(new_user_state_inf)
     db.add(new_user_login_inf)
     await db.commit()
     await db.refresh(new_user_login_inf)
