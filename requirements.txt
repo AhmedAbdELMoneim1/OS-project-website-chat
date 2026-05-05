@@ -1,7 +1,9 @@
 fastapi[standard]
 requests
-mysql-connector-python
+sqlalchemy[asyncio]
+aiomysql
 uvicorn
 python-dotenv
 pydantic
 websockets
+passlib[bcrypt]

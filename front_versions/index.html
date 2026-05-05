@@ -1,6 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Streamline Chat</title>
+<style>
+  /* ── Reset & tokens ──────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  :root {
+    --font: 'Segoe UI', system-ui, sans-serif;
+    --radius: 12px;
+    --radius-lg: 18px;
+    --radius-full: 9999px;
+    --transition: 0.18s ease;
 
----
-empty now :/
----
+    --bg:           #f0f2f5;
+    --surface:      #ffffff;
+    --surface-card: #f8f9fa;
+    --surface-hover:#f0f2f5;
+    --border:       #e4e6ea;
+    --on-surface:   #1a1a2e;
+    --on-muted:     #65676b;
+    --on-subtle:    #adb5bd;
+    --primary:      #4f46e5;
+    --primary-light:rgba(79,70,229,.12);
+    --online:       #22c55e;
+    --danger:       #ef4444;
+    --shadow:       0 2px 12px rgba(0,0,0,.08);
+  }
 
+  .dark {
+    --bg:           #0f1117;
+    --surface:      #1a1d27;
+    --surface-card: #22263a;
+    --surface-hover:#2a2e42;
+    --border:       #2e3347;
+    --on-surface:   #e8eaf0;
+    --on-muted:     #9399b2;
+    --on-subtle:    #4a5068;
+    --primary:      #818cf8;
+    --primary-light:rgba(129,140,248,.15);
+    --shadow:       0 2px 16px rgba(0,0,0,.35);
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--on-surface);
+    height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition), color var(--transition);
+  }
+
+  /* ── Auth screen ─────────────────────────────────────────────────── */
+  #auth-screen {
+    width: 100%;
+    max-width: 400px;
+    padding: 1rem;
+  }
+
+  .auth-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem 2rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+
+  .auth-logo {
+    display: flex;
+    align-items: center;
+    gap: .625rem;
+    margin-bottom: 2rem;
+    justify-content: center;
+  }
+
+  .auth-logo-icon {
+    width: 38px; height: 38px;
+    background: var(--primary);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 18px;
+  }
+
+  .auth-logo-text {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--on-surface);
+    letter-spacing: -.02em;
+  }
+
+  .auth-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: .375rem;
+    color: var(--on-surface);
+  }
+
+  .auth-sub {
+    font-size: .875rem;
+    color: var(--on-muted);
+    margin-bottom: 1.75rem;
+  }
+
+  .form-group { margin-bottom: 1rem; }
+
+  .form-group label {
+    display: block;
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--on-muted);
+    margin-bottom: .375rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: .65rem .875rem;
+    background: var(--surface-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: .9375rem;
+    color: var(--on-surface);
+    outline: none;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+
+  .form-group input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+  }
+
+  .form-row { display: flex; gap: .75rem; }
+  .form-row .form-group { flex: 1; }
+
+  .btn-primary {
+    width: 100%;
+    padding: .7rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: .9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: .5rem;
+    transition: opacity var(--transition), transform var(--transition);
+  }
+
+  .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  .auth-switch {
+    text-align: center;
+    margin-top: 1.25rem;
+    font-size: .875rem;
+    color: var(--on-muted);
+  }
+
+  .auth-switch a {
+    color: var(--primary);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  /* ── App shell ───────────────────────────────────────────────────── */
+  #app-screen {
+    width: 100%;
+    max-width: 1100px;
+    height: 92dvh;
+    display: flex;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+
+  /* ── Sidebar ─────────────────────────────────────────────────────── */
+  .sidebar {
+    width: 300px;
+    min-width: 300px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-card);
+  }
+
+  .sidebar-header {
+    padding: .875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo { display: flex; align-items: center; gap: .5rem; }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--primary);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-size: 14px;
+  }
+
+  .logo-label {
+    font-size: .9375rem;
+    font-weight: 700;
+    letter-spacing: -.02em;
+  }
+
+  .sidebar-actions { display: flex; align-items: center; gap: .375rem; }
+
+  .btn-icon {
+    width: 32px; height: 32px;
+    border-radius: var(--radius);
+    border: none;
+    background: transparent;
+    color: var(--on-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: background var(--transition), color var(--transition);
+  }
+
+  .btn-icon:hover { background: var(--surface-hover); color: var(--on-surface); }
+
+  .btn-new-chat {
+    padding: .5rem .875rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: .8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; gap: .375rem;
+    transition: opacity var(--transition);
+    white-space: nowrap;
+  }
+
+  .btn-new-chat:hover { opacity: .9; }
+
+  .section-label {
+    padding: .5rem 1.25rem .25rem;
+    font-size: .6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--on-subtle);
+  }
+
+  .chats-list { flex: 1; overflow-y: auto; }
+
+  .chat-item {
+    padding: .75rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background var(--transition);
+    position: relative;
+  }
+
+  .chat-item:hover { background: var(--surface-hover); }
+  .chat-item.active { background: var(--primary-light); }
+  .chat-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--primary);
+    border-radius: 0 2px 2px 0;
+  }
+
+  .avatar {
+    width: 40px; height: 40px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff;
+    font-size: .875rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .avatar.sm { width: 34px; height: 34px; font-size: .75rem; }
+
+  .avatar-dot {
+    position: absolute;
+    bottom: 1px; right: 1px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--online);
+    border: 2px solid var(--surface-card);
+  }
+
+  .chat-info { flex: 1; min-width: 0; }
+
+  .chat-name-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .25rem;
+  }
+
+  .chat-name {
+    font-size: .875rem;
+    font-weight: 600;
+    color: var(--on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-time {
+    font-size: .7rem;
+    color: var(--on-subtle);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .chat-preview {
+    font-size: .8125rem;
+    color: var(--on-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+  }
+
+  .chat-preview .typing-text { color: var(--primary); font-style: italic; }
+
+  .sidebar-footer {
+    padding: .875rem 1.25rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+  }
+
+  .current-user {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-width: 0;
+  }
+
+  .current-user-name {
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Main chat area ──────────────────────────────────────────────── */
+  .chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--surface);
+  }
+
+  /* Empty / no chat selected */
+  .chat-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--on-subtle);
+    gap: .75rem;
+  }
+
+  .chat-placeholder-icon { font-size: 3rem; }
+  .chat-placeholder h3 { font-size: 1.1rem; color: var(--on-muted); }
+  .chat-placeholder p  { font-size: .875rem; }
+
+  /* Chat header */
+  .chat-header {
+    padding: .875rem 1.5rem;
+    background: var(--surface-card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .875rem;
+  }
+
+  .header-name {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+  }
+
+  .header-status {
+    font-size: .75rem;
+    color: var(--on-muted);
+    margin-top: 1px;
+  }
+
+  .header-status.online { color: var(--online); }
+
+  /* Messages */
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem .5rem;
+    scroll-behavior: smooth;
+  }
+
+  .messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .load-more-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: .75rem;
+    font-size: .8rem;
+    color: var(--on-muted);
+  }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .msg-wrapper {
+    display: flex;
+    animation: msgIn .18s ease;
+  }
+
+  .msg-wrapper.out { justify-content: flex-end; }
+  .msg-wrapper.in  { justify-content: flex-start; }
+  .msg-wrapper.gap { margin-top: .875rem; }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .bubble {
+    max-width: 68%;
+    padding: .6rem .875rem;
+    border-radius: var(--radius-lg);
+    line-height: 1.5;
+  }
+
+  .bubble.in {
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    color: var(--on-surface);
+  }
+
+  .bubble.out {
+    background: var(--primary);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 8px rgba(79,70,229,.25);
+  }
+
+  .dark .bubble.out { box-shadow: 0 2px 12px rgba(129,140,248,.2); }
+
+  .bubble-text {
+    font-size: .9375rem;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  .bubble-meta {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    margin-top: .2rem;
+    justify-content: flex-end;
+    font-size: .7rem;
+    opacity: .65;
+  }
+
+  .bubble.in .bubble-meta { justify-content: flex-start; }
+
+  /* Typing indicator */
+  .typing-bubble {
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    border-bottom-left-radius: 4px;
+    padding: .65rem .875rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .typing-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--on-subtle);
+    animation: typingBounce 1.2s infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: .2s; }
+  .typing-dot:nth-child(3) { animation-delay: .4s; }
+
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30%           { transform: translateY(-6px); }
+  }
+
+  /* Input area */
+  .input-area {
+    padding: .875rem 1.5rem 1rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: .75rem;
+    background: var(--surface-hover);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: .375rem .375rem .375rem 1rem;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+    background: var(--surface);
+  }
+
+  .msg-textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: var(--font);
+    font-size: .9375rem;
+    color: var(--on-surface);
+    outline: none;
+    resize: none;
+    max-height: 120px;
+    overflow-y: auto;
+    line-height: 1.45;
+    padding: .375rem 0;
+  }
+
+  .msg-textarea::placeholder { color: var(--on-subtle); }
+
+  .btn-send {
+    width: 38px; height: 38px;
+    min-width: 38px;
+    border-radius: 10px;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: opacity var(--transition), transform var(--transition);
+    flex-shrink: 0;
+  }
+
+  .btn-send:hover:not(:disabled) { opacity: .9; transform: scale(1.05); }
+  .btn-send:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+
+  /* ── Modal (New Chat) ────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    animation: fadeIn .15s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    width: 360px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    border: 1px solid var(--border);
+    animation: slideUp .18s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(12px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  .modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: .75rem;
+    margin-top: 1.25rem;
+  }
+
+  .btn-cancel {
+    flex: 1;
+    padding: .65rem;
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: .875rem;
+    font-weight: 600;
+    color: var(--on-muted);
+    cursor: pointer;
+    transition: background var(--transition);
+  }
+
+  .btn-cancel:hover { background: var(--border); }
+
+  .btn-confirm {
+    flex: 1;
+    padding: .65rem;
+    background: var(--primary);
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: .875rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: opacity var(--transition);
+  }
+
+  .btn-confirm:hover { opacity: .9; }
+
+  /* ── Status pill ─────────────────────────────────────────────────── */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .15rem .5rem;
+    border-radius: var(--radius-full);
+    font-size: .7rem;
+    font-weight: 600;
+  }
+
+  .pill.online { background: rgba(34,197,94,.12); color: #16a34a; }
+  .pill.offline { background: var(--surface-hover); color: var(--on-muted); }
+  .dark .pill.online { color: #4ade80; }
+
+  .pill-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* Hidden utility */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── AUTH SCREEN ──────────────────────────────────────────────────── -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">💬</div>
+      <span class="auth-logo-text">Streamline</span>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="login-form">
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-sub">Sign in to your account</div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button class="btn-primary" id="btn-login">Sign In</button>
+      <div class="auth-switch">No account? <a id="go-register">Create one</a></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="register-form" class="hidden">
+      <div class="auth-title">Create account</div>
+      <div class="auth-sub">Join Streamline today</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>First name</label>
+          <input type="text" id="reg-first" placeholder="Ali" />
+        </div>
+        <div class="form-group">
+          <label>Last name</label>
+          <input type="text" id="reg-last" placeholder="Hassan" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="••••••••" />
+      </div>
+      <button class="btn-primary" id="btn-register">Create Account</button>
+      <div class="auth-switch">Already have one? <a id="go-login">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP SCREEN ───────────────────────────────────────────────────── -->
+<div id="app-screen" class="hidden">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-icon">💬</div>
+        <span class="logo-label">Streamline</span>
+      </div>
+      <div class="sidebar-actions">
+        <button class="btn-icon" id="btn-theme" title="Toggle theme">🌙</button>
+        <button class="btn-new-chat" id="btn-new-chat">＋ New Chat</button>
+      </div>
+    </div>
+
+    <div class="section-label">Direct Messages</div>
+    <div class="chats-list" id="chats-list"></div>
+
+    <div class="sidebar-footer">
+      <div class="avatar sm" id="current-avatar" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">?</div>
+      <div class="current-user">
+        <div class="current-user-name" id="current-name">—</div>
+      </div>
+      <button class="btn-icon" id="btn-logout" title="Logout">🚪</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="chat-main" id="chat-main">
+    <div class="chat-placeholder" id="chat-placeholder">
+      <div class="chat-placeholder-icon">💬</div>
+      <h3>Select a conversation</h3>
+      <p>Choose a chat from the sidebar to start messaging</p>
+    </div>
+
+    <!-- Chat view (hidden until a chat is selected) -->
+    <div id="chat-view" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+      <div class="chat-header">
+        <div class="avatar" id="hdr-avatar">?</div>
+        <div>
+          <div class="header-name" id="hdr-name">—</div>
+          <div class="header-status" id="hdr-status">Offline</div>
+        </div>
+      </div>
+
+      <div class="messages-container" id="messages-container">
+        <div class="messages-list" id="messages-list"></div>
+        <div id="typing-row" class="msg-wrapper in hidden" style="margin-top:.5rem">
+          <div class="typing-bubble">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+        </div>
+        <div id="messages-end"></div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-wrapper">
+          <textarea class="msg-textarea" id="msg-input" rows="1" placeholder="Type a message…"></textarea>
+          <button class="btn-send" id="btn-send" disabled>➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── NEW CHAT MODAL ───────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="modal-new-chat">
+  <div class="modal">
+    <div class="modal-title">Start New Conversation</div>
+    <div class="form-group">
+      <label>User ID</label>
+      <input type="number" id="new-chat-user-id" placeholder="Enter the user's ID…" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-confirm" id="modal-confirm">Start Chat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════════════
+const API = 'http://192.168.1.60:8000';
+const WS_URL = 'ws://192.168.1.60:8000/ws';
+
+// ════════════════════════════════════════════════════════════════════
+// STATE  (plain objects — no framework needed)
+// ════════════════════════════════════════════════════════════════════
+const state = {
+  currentUser:     null,   // { user_id, first_name, last_name, email }
+  chats:           [],
+  activeChat:      null,
+  messages:        [],
+  onlineUsers:     new Set(),
+  typingChats:     new Map(),  // chat_id → sender_id
+  hasMoreMessages: false,
+  isLoadingMore:   false,
+  oldestTimestamp: null,
+  ws:              null,
+  isTyping:        false,
+  typingTimer:     null,
+  isDark:          localStorage.getItem('sl-dark') === 'true',
+};
+
+// ════════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+
+function initials(first = '', last = '') {
+  return ((first[0] ?? '') + (last[0] ?? '')).toUpperCase() || '?';
+}
+
+function fmtTime(dt) {
+  if (!dt) return '';
+  return new Date(dt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function toSQLDateTime(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ` +
+         `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// Detect RTL first character (Arabic / Hebrew / Persian ranges)
+function getDir(text) {
+  return /^[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF\u05D0-\u05FF]/.test(
+    (text || '').trimStart()
+  ) ? 'rtl' : 'ltr';
+}
+
+function scrollToBottom(smooth = true) {
+  const end = $('messages-end');
+  if (end) end.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
+}
+
+function applyTheme() {
+  document.body.classList.toggle('dark', state.isDark);
+  $('btn-theme').textContent = state.isDark ? '☀️' : '🌙';
+}
+
+// ════════════════════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════════════════════
+async function restoreSession() {
+  try {
+    const res = await fetch(`${API}/me`, { credentials: 'include' });
+    if (res.ok) {
+      state.currentUser = await res.json();
+      enterApp();
+    }
+  } catch { /* show login */ }
+}
+
+async function login() {
+  const email    = $('login-email').value.trim();
+  const password = $('login-password').value;
+  if (!email || !password) return alert('Please fill in all fields.');
+
+  const btn = $('btn-login');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    const res = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password })
+    });
+
+    if (res.ok) {
+      const meRes = await fetch(`${API}/me`, { credentials: 'include' });
+      if (meRes.ok) state.currentUser = await meRes.json();
+      else state.currentUser = { email };
+      enterApp();
+    } else {
+      alert('Login failed. Please check your credentials.');
+    }
+  } catch { alert('Connection error. Please try again.'); }
+
+  btn.disabled = false;
+  btn.textContent = 'Sign In';
+}
+
+async function register() {
+  const firstName = $('reg-first').value.trim();
+  const lastName  = $('reg-last').value.trim();
+  const email     = $('reg-email').value.trim();
+  const password  = $('reg-password').value;
+
+  if (!firstName || !lastName || !email || !password) return alert('Please fill all fields.');
+
+  const btn = $('btn-register');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  try {
+    const res = await fetch(`${API}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ first_name: firstName, last_name: lastName, email, password })
+    });
+
+    if (res.ok) {
+      alert('Registration successful! Please sign in.');
+      showLogin();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.detail || 'Registration failed.');
+    }
+  } catch { alert('Connection error.'); }
+
+  btn.disabled = false;
+  btn.textContent = 'Create Account';
+}
+
+async function logout() {
+  wsIntentionalClose = true;
+  if (state.ws) state.ws.close();
+  await fetch(`${API}/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+  state.currentUser = null;
+  state.chats = [];
+  state.activeChat = null;
+  state.messages = [];
+  state.onlineUsers = new Set();
+  state.typingChats = new Map();
+  $('app-screen').classList.add('hidden');
+  $('auth-screen').classList.remove('hidden');
+  showLogin();
+}
+
+function showLogin() {
+  $('login-form').classList.remove('hidden');
+  $('register-form').classList.add('hidden');
+}
+
+function showRegister() {
+  $('login-form').classList.add('hidden');
+  $('register-form').classList.remove('hidden');
+}
+
+function enterApp() {
+  $('auth-screen').classList.add('hidden');
+  $('app-screen').classList.remove('hidden');
+
+  const u = state.currentUser;
+  if (u) {
+    const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email || '—';
+    $('current-name').textContent = name;
+    $('current-avatar').textContent = initials(u.first_name, u.last_name);
+  }
+
+  wsConsecutiveFails = 0;  // reset before fresh connect attempt
+  wsRetryDelay = 2000;
+  initWS();
+  loadChats();  // always load chats — don't depend on WS succeeding first
+}
+
+// ════════════════════════════════════════════════════════════════════
+// WEBSOCKET
+// ════════════════════════════════════════════════════════════════════
+let wsRetryDelay = 2000;
+let wsIntentionalClose = false;
+let wsConsecutiveFails = 0;   // counts how many times WS failed without a successful open
+
+function initWS() {
+  if (state.ws && state.ws.readyState < 2) {
+    wsIntentionalClose = true;
+    state.ws.close();
+  }
+  wsIntentionalClose = false;
+
+  const ws = new WebSocket(WS_URL);
+  let didOpen = false;  // tracks whether this connection ever reached onopen
+
+  ws.onopen = () => {
+    didOpen = true;
+    wsRetryDelay = 2000;     // reset backoff
+    wsConsecutiveFails = 0;  // reset failure counter
+    fetch(`${API}/changeUserState?state=online`, { credentials: 'include' }).catch(() => {});
+  };
+
+  ws.onmessage = (evt) => {
+    try { handleWSMessage(JSON.parse(evt.data)); }
+    catch (e) { console.error('WS parse error', e); }
+  };
+
+  ws.onerror = () => {};  // onclose fires right after — handle there
+
+  ws.onclose = (e) => {
+    if (wsIntentionalClose) return;
+    if (!state.currentUser) return;
+
+    if (!didOpen) {
+      // Connection was rejected before it even opened (403, network refused, etc.)
+      wsConsecutiveFails++;
+      if (wsConsecutiveFails >= 3) {
+        // 3 rejections in a row = permanent problem (CORS, auth, server down).
+        // Stop spamming. User needs to fix backend config or re-login.
+        console.error(
+          `WS rejected ${wsConsecutiveFails} times without connecting. ` +
+          `Check backend CORS/allowed origins for ${WS_URL}. Stopping retries.`
+        );
+        wsConsecutiveFails = 0;
+        return;
+      }
+    }
+
+    console.log(`WS closed (code ${e.code}) — retrying in ${wsRetryDelay / 1000}s`);
+    setTimeout(initWS, wsRetryDelay);
+    wsRetryDelay = Math.min(wsRetryDelay * 2, 30_000);
+  };
+
+  state.ws = ws;
+}
+
+function handleWSMessage(data) {
+  if (data.online_users) {
+    state.onlineUsers = new Set(data.online_users);
+    renderOnlineStatus();
+    renderChatItems();
+    return;
+  }
+
+  switch (data.type) {
+    case 'message':  handleIncomingMessage(data);  break;
+    case 'user_state':
+      if (data.user_state === 'online') state.onlineUsers.add(data.user_id);
+      else state.onlineUsers.delete(data.user_id);
+      renderOnlineStatus();
+      renderChatItems();
+      break;
+    case 'typing':
+      if (data.on) state.typingChats.set(data.chat_id, data.sender_id);
+      else state.typingChats.delete(data.chat_id);
+      renderTypingPreview();
+      renderTypingIndicator();
+      break;
+  }
+}
+
+function handleIncomingMessage(data) {
+  if (!data.message_id) return;
+
+  const isMine = state.currentUser &&
+                 String(data.from_user_id) === String(state.currentUser.user_id);
+
+  if (isMine) {
+    // This is the backend echoing our own sent message to our other sessions.
+    // The session that actually sent it already handled everything via HTTP response.
+    // For OTHER sessions of the same user: add the message if viewing that chat,
+    // and update the sidebar preview — but never call loadChats.
+    const ac = state.activeChat;
+    if (ac && String(ac.chat_id) === String(data.chat_id)) {
+      if (!state.messages.some(m => m.message_id === data.message_id)) {
+        state.messages.push({
+          message_id: data.message_id,
+          from_user_id: data.from_user_id,
+          message_text: data.message_text,
+          created_at: data.created_at,
+          status: 'sent'
+        });
+        renderMessages();
+        scrollToBottom();
+      }
+    }
+    updateChatPreview(data.chat_id, data.message_text, data.created_at);
+    return;
+  }
+
+  // Message from the other user — add to view if this chat is open
+  const ac = state.activeChat;
+  if (ac && String(ac.another_user_id) === String(data.from_user_id)) {
+    if (!state.messages.some(m => m.message_id === data.message_id)) {
+      state.messages.push({
+        message_id: data.message_id,
+        from_user_id: data.from_user_id,
+        message_text: data.message_text,
+        created_at: data.created_at,
+        status: 'delivered'
+      });
+      renderMessages();
+      scrollToBottom();
+    }
+  }
+
+  // Update sidebar preview in-place — we have all the data we need from the WS payload.
+  // Never call loadChats here; every open session of the receiver would fire it independently,
+  // causing N calls per message where N = number of open tabs.
+  updateChatPreview(data.chat_id, data.message_text, data.created_at);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// CHAT OPERATIONS
+// ════════════════════════════════════════════════════════════════════
+
+// Update the sidebar preview for one chat without any HTTP call.
+// Called after sendMessage so we never need loadChats() just for a preview update.
+function updateChatPreview(chatId, messageText, timestamp) {
+  const chatIdNum = Number(chatId);
+  const chat = state.chats.find(c => c.chat_id === chatIdNum);
+  if (!chat) {
+    // Chat not in list yet (e.g. new conversation) — do a full reload
+    scheduleLoadChats();
+    return;
+  }
+  chat.message_text = messageText;
+  chat.last_message_time = timestamp;
+  // Bubble this chat to the top (most-recent first)
+  state.chats = [chat, ...state.chats.filter(c => c.chat_id !== chatIdNum)];
+  renderChatItems();
+}
+
+// Debounced loadChats — for receiver-side updates only.
+// Collapses bursts (multi-session broadcast) into one HTTP call.
+let loadChatsTimer = null;
+function scheduleLoadChats() {
+  clearTimeout(loadChatsTimer);
+  loadChatsTimer = setTimeout(loadChats, 200);
+}
+
+async function loadChats() {
+  try {
+    const res = await fetch(`${API}/loadChats`, { credentials: 'include' });
+    if (res.ok) {
+      state.chats = await res.json();
+      renderChatItems();
+    }
+  } catch (e) { console.error('loadChats', e); }
+}
+
+async function loadChatMessages(chatId) {
+  state.messages = [];
+  state.hasMoreMessages = false;
+  state.isLoadingMore = false;
+  state.oldestTimestamp = null;
+  renderMessages();
+
+  try {
+    const from = encodeURIComponent(toSQLDateTime(new Date()));
+    const res = await fetch(`${API}/loadUserChat?chat_id=${chatId}&from_datetime=${from}`, {
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const sorted = [...data].reverse();
+      const seen = new Set();
+      state.messages = sorted.filter(m => {
+        if (seen.has(m.message_id)) return false;
+        seen.add(m.message_id); return true;
+      });
+      state.hasMoreMessages = data.length >= 100;
+      if (state.messages.length > 0)
+        state.oldestTimestamp = state.messages[0].created_at;
+      renderMessages();
+      scrollToBottom(false);
+    }
+  } catch (e) { console.error('loadMessages', e); }
+}
+
+async function loadMoreMessages() {
+  if (!state.activeChat || state.isLoadingMore || !state.hasMoreMessages) return;
+  if (!state.oldestTimestamp) return;
+
+  state.isLoadingMore = true;
+  renderLoadMore();
+
+  try {
+    const from = encodeURIComponent(state.oldestTimestamp);
+    const res = await fetch(
+      `${API}/loadUserChat?chat_id=${state.activeChat.chat_id}&from_datetime=${from}`,
+      { credentials: 'include' }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const sorted = [...data].reverse();
+      state.hasMoreMessages = data.length >= 100;
+
+      if (sorted.length > 0) {
+        state.oldestTimestamp = sorted[0].created_at;
+        const container = $('messages-container');
+        const prevHeight = container.scrollHeight;
+        const existingIds = new Set(state.messages.map(m => m.message_id));
+        const newOnly = sorted.filter(m => !existingIds.has(m.message_id));
+        state.messages = [...newOnly, ...state.messages];
+        renderMessages();
+        // Restore scroll position
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight - prevHeight;
+        });
+      }
+    }
+  } catch (e) { console.error('loadMore', e); }
+
+  state.isLoadingMore = false;
+  renderLoadMore();
+}
+
+async function sendMessage() {
+  const ta = $('msg-input');
+  const text = ta.value.trim();
+  if (!text || !state.activeChat) return;
+
+  ta.value = '';
+  ta.style.height = 'auto';
+  $('btn-send').disabled = true;
+
+  // Stop typing signal
+  if (state.isTyping) {
+    state.isTyping = false;
+    clearTimeout(state.typingTimer);
+    if (state.ws) state.ws.send(JSON.stringify({
+      type: 'typing', on: false,
+      chat_id: state.activeChat.chat_id,
+      receiver_id: state.activeChat.another_user_id
+    }));
+  }
+
+  try {
+    const res = await fetch(`${API}/sendMessages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ chat_id: state.activeChat.chat_id, message_text: text })
+    });
+
+    if (res.ok) {
+      const msg = await res.json();
+      // Idempotent push — WS may echo this back, dedup will catch it
+      if (!state.messages.some(m => m.message_id === msg.message_id)) {
+        state.messages.push({ ...msg, status: 'sent' });
+        renderMessages();
+        scrollToBottom();
+      }
+      // Update sidebar in-place — no HTTP call needed, we have all the data
+      updateChatPreview(state.activeChat.chat_id, text, msg.created_at || new Date().toISOString());
+    }
+  } catch (e) { console.error('send', e); }
+}
+
+async function addChat() {
+  const uid = $('new-chat-user-id').value.trim();
+  if (!uid) return;
+
+  const btn = $('modal-confirm');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API}/addChat?other_user_id=${uid}`, {
+      method: 'POST', credentials: 'include'
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      closeModal();
+      $('new-chat-user-id').value = '';
+      await loadChats();
+      const chat = state.chats.find(c => c.chat_id === data.chat_id);
+      if (chat) selectChat(chat);
+    } else {
+      alert('Failed to create chat. User may not exist.');
+    }
+  } catch (e) { console.error('addChat', e); }
+
+  btn.disabled = false;
+}
+
+function selectChat(chat) {
+  state.activeChat = chat;
+  $('msg-input').value = '';
+  $('msg-input').style.height = 'auto';
+  $('btn-send').disabled = true;
+
+  // Show chat view
+  $('chat-placeholder').classList.add('hidden');
+  const cv = $('chat-view');
+  cv.classList.remove('hidden');
+  cv.style.display = 'flex';
+
+  // Header
+  const name = `${chat.first_name} ${chat.last_name}`.trim();
+  $('hdr-avatar').textContent = initials(chat.first_name, chat.last_name);
+  $('hdr-name').textContent = name;
+  renderOnlineStatus();
+
+  // Highlight in sidebar
+  document.querySelectorAll('.chat-item').forEach(el => {
+    el.classList.toggle('active', Number(el.dataset.chatId) === chat.chat_id);
+  });
+
+  loadChatMessages(chat.chat_id);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// TYPING
+// ════════════════════════════════════════════════════════════════════
+function handleInputChange() {
+  const ta = $('msg-input');
+  // Auto-resize
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+  // Send button state
+  $('btn-send').disabled = !ta.value.trim();
+
+  if (!state.activeChat || !state.ws) return;
+  const hasText = ta.value.length > 0;
+
+  if (!state.isTyping && hasText) {
+    state.isTyping = true;
+    state.ws.send(JSON.stringify({
+      type: 'typing', on: true,
+      chat_id: state.activeChat.chat_id,
+      receiver_id: state.activeChat.another_user_id
+    }));
+  }
+
+  clearTimeout(state.typingTimer);
+  state.typingTimer = setTimeout(() => {
+    if (state.isTyping) {
+      state.isTyping = false;
+      if (state.ws && state.activeChat) state.ws.send(JSON.stringify({
+        type: 'typing', on: false,
+        chat_id: state.activeChat.chat_id,
+        receiver_id: state.activeChat.another_user_id
+      }));
+    }
+  }, 1000);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// RENDER FUNCTIONS
+// ════════════════════════════════════════════════════════════════════
+function renderChatItems() {
+  const container = $('chats-list');
+  if (!state.chats.length) {
+    container.innerHTML = '<div style="padding:1.25rem;font-size:.8125rem;color:var(--on-subtle);text-align:center">No conversations yet</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  state.chats.forEach(chat => {
+    const name = `${chat.first_name} ${chat.last_name}`.trim();
+    const isOnline = state.onlineUsers.has(chat.another_user_id);
+    const isTyping = state.typingChats.has(chat.chat_id);
+    const isActive = state.activeChat?.chat_id === chat.chat_id;
+
+    const el = document.createElement('div');
+    el.className = 'chat-item' + (isActive ? ' active' : '');
+    el.dataset.chatId = chat.chat_id;
+    el.innerHTML = `
+      <div class="avatar sm">
+        ${initials(chat.first_name, chat.last_name)}
+        ${isOnline ? '<div class="avatar-dot"></div>' : ''}
+      </div>
+      <div class="chat-info">
+        <div class="chat-name-row">
+          <div class="chat-name">${name}</div>
+          ${chat.last_message_time ? `<div class="chat-time">${fmtTime(chat.last_message_time)}</div>` : ''}
+        </div>
+        <div class="chat-preview">
+          ${isTyping
+            ? '<span class="typing-text">typing…</span>'
+            : (chat.message_text || '<span style="opacity:.5">No messages yet</span>')}
+        </div>
+      </div>`;
+    el.addEventListener('click', () => selectChat(chat));
+    container.appendChild(el);
+  });
+}
+
+function renderMessages() {
+  const list = $('messages-list');
+  list.innerHTML = '';
+
+  // Load-more indicator at top
+  renderLoadMore();
+
+  const ac = state.activeChat;
+  if (!ac) return;
+
+  state.messages.forEach((msg, idx) => {
+    const isOut = String(msg.from_user_id) !== String(ac.another_user_id);
+    const showGap = idx > 0 && state.messages[idx-1].from_user_id !== msg.from_user_id;
+    const dir = getDir(msg.message_text);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = `msg-wrapper ${isOut ? 'out' : 'in'}${showGap ? ' gap' : ''}`;
+    wrapper.innerHTML = `
+      <div class="bubble ${isOut ? 'out' : 'in'}">
+        <div class="bubble-text" dir="${dir}" style="text-align:${dir==='rtl'?'right':'left'}">${escHtml(msg.message_text)}</div>
+        <div class="bubble-meta" style="flex-direction:${dir==='rtl'?'row-reverse':'row'}">
+          <span>${fmtTime(msg.created_at)}</span>
+          ${isOut ? (msg.status === 'read' ? '✓✓' : '✓') : ''}
+        </div>
+      </div>`;
+    list.appendChild(wrapper);
+  });
+
+  renderTypingIndicator();
+}
+
+function renderLoadMore() {
+  const existing = $('load-more-row');
+  if (existing) existing.remove();
+
+  if (state.isLoadingMore) {
+    const row = document.createElement('div');
+    row.id = 'load-more-row';
+    row.className = 'load-more-row';
+    row.innerHTML = '<div class="spinner"></div><span>Loading older messages…</span>';
+    $('messages-list').prepend(row);
+  } else if (state.hasMoreMessages) {
+    const row = document.createElement('div');
+    row.id = 'load-more-row';
+    row.className = 'load-more-row';
+    row.style.cssText = 'font-size:.75rem;font-style:italic;opacity:.5;cursor:pointer;';
+    row.textContent = 'Scroll up for older messages';
+    $('messages-list').prepend(row);
+  }
+}
+
+function renderTypingIndicator() {
+  const row = $('typing-row');
+  if (!state.activeChat) { row.classList.add('hidden'); return; }
+  const isTyping = state.typingChats.has(state.activeChat.chat_id);
+  row.classList.toggle('hidden', !isTyping);
+  if (isTyping) scrollToBottom();
+}
+
+function renderTypingPreview() {
+  // Re-render chat list to update typing preview
+  renderChatItems();
+}
+
+function renderOnlineStatus() {
+  if (!state.activeChat) return;
+  const isOnline = state.onlineUsers.has(state.activeChat.another_user_id);
+  const hdr = $('hdr-status');
+  if (isOnline) {
+    hdr.innerHTML = '<span class="pill online"><span class="pill-dot"></span>Active now</span>';
+  } else {
+    hdr.innerHTML = '<span class="pill offline">Offline</span>';
+  }
+}
+
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════════════════════
+function openModal()  { $('modal-new-chat').classList.remove('hidden'); $('new-chat-user-id').focus(); }
+function closeModal() { $('modal-new-chat').classList.add('hidden'); }
+
+// ════════════════════════════════════════════════════════════════════
+// EVENT WIRING
+// ════════════════════════════════════════════════════════════════════
+$('btn-login').addEventListener('click', login);
+$('btn-register').addEventListener('click', register);
+$('go-register').addEventListener('click', showRegister);
+$('go-login').addEventListener('click', showLogin);
+$('btn-logout').addEventListener('click', logout);
+
+$('btn-theme').addEventListener('click', () => {
+  state.isDark = !state.isDark;
+  localStorage.setItem('sl-dark', state.isDark);
+  applyTheme();
+});
+
+$('btn-new-chat').addEventListener('click', openModal);
+$('modal-cancel').addEventListener('click', closeModal);
+$('modal-confirm').addEventListener('click', addChat);
+$('modal-new-chat').addEventListener('click', e => { if (e.target === $('modal-new-chat')) closeModal(); });
+
+$('new-chat-user-id').addEventListener('keydown', e => { if (e.key === 'Enter') addChat(); });
+
+// Auth form keyboard shortcuts
+$('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+$('reg-password').addEventListener('keydown', e => { if (e.key === 'Enter') register(); });
+
+// Message input
+const msgInput = $('msg-input');
+msgInput.addEventListener('input', handleInputChange);
+msgInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+  // Shift+Enter → browser inserts newline naturally
+});
+
+$('btn-send').addEventListener('click', sendMessage);
+
+// Scroll-to-top pagination
+$('messages-container').addEventListener('scroll', () => {
+  if ($('messages-container').scrollTop < 80) loadMoreMessages();
+});
+
+// ════════════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════════════
+applyTheme();
+restoreSession();
+</script>
+</body>
+</html>

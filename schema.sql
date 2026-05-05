@@ -31,10 +31,12 @@ create table chats (
 create table chat_participants (
     chat_id INT,
     user_id INT,
+    last_message_id INT,
 
     PRIMARY KEY (chat_id, user_id),
     FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users_inf(user_id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users_inf(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (last_message_id) REFERENCES chats_messages(message_id)
 );
 
 create table chats_messages(
@@ -47,3 +49,7 @@ create table chats_messages(
     FOREIGN KEY (from_user_id) REFERENCES users_inf(user_id),
     FOREIGN KEY (chat_id) REFERENCES chats(chat_id)
 );
+
+CREATE INDEX ix_users_login_inf_email ON users_login_inf(email);
+CREATE INDEX ix_users_inf_first_name ON users_inf(first_name);
+CREATE INDEX ix_users_inf_last_name ON users_inf(last_name);
