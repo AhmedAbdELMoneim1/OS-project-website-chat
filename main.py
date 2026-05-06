@@ -25,7 +25,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # :TODO add real email auth key checker
 # :TODO manage workers and redis and how to create it
-# can make message read or not f
+# :TODO user statues --> make message not_sent -> sent -> sent&read
 
 app = FastAPI()
 
