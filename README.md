@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 ### 4. Set Up the Database
 
-Create the databases using the provided schema:
+Create the mysql databases using the provided schema:
 
 ```bash
 # Run your DB tool against schema.sql
