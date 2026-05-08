@@ -26,7 +26,7 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # :TODO add real email auth key checker
-# :TODO manage workers and redis and how to create it
+# :TODO manage workers and redis and how to create it   ----> DOME ✅
 # :TODO user status --> make message not_sent -> sent -> sent&read   ----> skipped now
 
 app = FastAPI()
