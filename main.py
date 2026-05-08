@@ -1,10 +1,12 @@
-from typing import Literal, List
+from typing import Literal, List, Dict
 import json
 import uuid
 
+import asyncio
 from fastapi import FastAPI, HTTPException, Cookie, Depends, status, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
+import redis.asyncio as redis
 
 from core.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,11 +27,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # :TODO add real email auth key checker
 # :TODO manage workers and redis and how to create it
-# :TODO user statues --> make message not_sent -> sent -> sent&read
+# :TODO user status --> make message not_sent -> sent -> sent&read   ----> skipped now
 
 app = FastAPI()
 
-# manage server origins ips mmm.. server setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -38,7 +39,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-active_users_sessions = {}
+redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
+r = redis.Redis(connection_pool=redis_pool)
+
+SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
@@ -46,17 +50,25 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-def get_user_session(session_id: str | None = Cookie(default=None)):
-    if not session_id or session_id not in active_users_sessions:
+async def get_user_session(session_id: str | None = Cookie(default=None)):
+    if not session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated or session expired"
+            detail="not authenticated"
         )
-    return active_users_sessions[session_id]
+    user_id = await r.get(f"session:{session_id}")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="session expired or invalid"
+        )
+
+    return user_id
 
 @app.get("/")
 async def root():
-    return FileResponse("front_versions/index_v2.html")
+    return FileResponse("front_versions/index.html")
 
 @app.post("/login")
 async def login(
@@ -74,19 +86,15 @@ async def login(
 
     session_id = str(uuid.uuid4()) # create a session id
 
-    active_users_sessions[session_id] = {
-        "user_id": user.user_id,
-        "state": "online",
-        "typing": 0
-    }
+    await r.setex(f"session:{session_id}", SESSION_TTL, user.user_id)
 
     response.set_cookie(
         key="session_id",
         value=session_id,
         httponly=True,
-        max_age=60 * 60 * 24 * 7,
+        max_age=SESSION_TTL,
         samesite="lax",
-        secure=False
+        secure=False # Ture in real deployment in https not http :)
     )
 
     return {"message": "Login successful"}
@@ -108,17 +116,15 @@ async def register(user_data: UserFullInf, db: AsyncSession = Depends(get_db)):
     return new_user
 
 @app.get("/loadChats", response_model=List[ChatListResponse])
-async def load_chats(user_session: dict = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
-    user_id = user_session["user_id"]
+async def load_chats(user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
     chats = await load_user_chats_with_last_msg_id(db, user_id)
     return chats
 
 @app.get("/loadUserChat", response_model=List[MessagesResponse])
 async def loadUserChat(chat_id: int, from_datetime: str,
-                       user_session: dict = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
+                       user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
 
     # must check privacy --> chat_id into user chats or not ?!
-    user_id = user_session["user_id"]
     if not await check_user_in_chat(db, user_id, chat_id):
         raise HTTPException(
             status_code=status.HTTP_406_NOT_ACCEPTABLE,
@@ -129,8 +135,7 @@ async def loadUserChat(chat_id: int, from_datetime: str,
 
 @app.post("/addChat") # just create a chat after check if exist
 async def add_chat(other_user_id: int,
-                   user_session: dict = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
-    user_id = user_session["user_id"]
+                   user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
 
     if not await check_user_id_exist(db, other_user_id):
         raise HTTPException(
@@ -149,36 +154,90 @@ async def add_chat(other_user_id: int,
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class ConnectionManager:
     def __init__(self):
-        # mmm.. i assume user have mul sessions
+
+        # mmm... assume user have mul sessions
+        # this is isolated by every worker
         self.active_connections: dict[int, List[WebSocket]] = {}
+        # background Redis listener for users sessions into this worker
+        self.pubsub_tasks: Dict[int, asyncio.Task] = {}
 
     async def connect(self, websocket: WebSocket, user_id: int, db: AsyncSession):
+
         await websocket.accept()
         all_users_chats = await load_user_chats(db, user_id)
         if user_id not in self.active_connections:
             self.active_connections[user_id] = []
-            await change_user_status(db, user_id, "online")
-            await websocket_manager.broadcast_to_users(
-                all_users_chats,
-                {"type": "user_state", "user_id": user_id, "user_state": "online"}
-            )
-        all_users_status = [
-            user_id for user_id in all_users_chats if user_id in self.active_connections
-        ]
-        await websocket.send_json({"online_users": all_users_status})
+
+            # should start a single Redis listener for this user on this worker ...
+            await self.__start_redis_listener_to_user_inbox(user_id)
+
+            # user_sessions_number key for every user ... use it to check if it first session to the user
+            # if first session will be 1
+            active_sessions = await r.incr(f"user_sessions_number:{user_id}")
+
+            if active_sessions == 1:
+                await change_user_status(db, user_id, "online")
+                await websocket_manager.broadcast_to_users(
+                    all_users_chats,
+                    {"type": "user_state", "user_id": user_id, "user_state": "online"}
+                )
         self.active_connections[user_id].append(websocket)
 
-    def disconnect(self, websocket: WebSocket, user_id: int):
+        all_users_status = [
+            user_id for user_id in all_users_chats if await r.get(f"user_sessions_number:{user_id}")  # don't do this -- should be got from db with chats :)
+        ]
+
+        await websocket.send_json({"online_users": all_users_status})
+
+
+    async def __start_redis_listener_to_user_inbox(self, user_id: int):
+        pubsub = r.pubsub()
+        await pubsub.subscribe(f"user_inbox:{user_id}")
+
+        async def listen():
+            try:
+                async for message in pubsub.listen():
+                    if message['type'] == 'message':
+                        msg = json.loads(message['data'])
+
+                        for ws in self.active_connections.get(user_id, []):
+                            await ws.send_json(msg)
+
+            except asyncio.CancelledError:
+                await pubsub.unsubscribe(f"user_inbox:{user_id}")
+                await pubsub.close()
+
+        self.pubsub_tasks[user_id] = asyncio.create_task(listen())
+
+    async def disconnect(self, websocket: WebSocket, user_id: int, db: AsyncSession):
         if user_id in self.active_connections and websocket in self.active_connections[user_id]:
             self.active_connections[user_id].remove(websocket)
 
+            # check if active sessions into this worker for this user
             if not self.active_connections[user_id]:
                 del self.active_connections[user_id]
 
-    async def send_personal_message(self, user_id: int, message: dict):
-        if user_id in self.active_connections:
-            for websocket_session in self.active_connections[user_id]:
-                await websocket_session.send_json(message)
+                # if yes "no sessions here" so ... cancel the listener task to this session
+                if user_id in self.pubsub_tasks:
+                    self.pubsub_tasks[user_id].cancel()
+                    del self.pubsub_tasks[user_id]
+
+        # number of session Decrement by 1
+        active_sessions = await r.decr(f"user_sessions_number:{user_id}")
+
+        if active_sessions <= 0: # ... this user close all sessions
+            await change_user_status(db, user_id, "offline")
+            all_users_chats = await load_user_chats(db, user_id)
+            await self.broadcast_to_users(
+                all_users_chats,
+                {"type": "user_state", "user_id": user_id, "user_state": "offline"}
+            )
+            await r.delete(f"user_sessions_number:{user_id}")
+            # mmmm... the channel deleted by default when no subscribers to it ...
+
+    async def send_personal_message(self, target_user_id: int, message: dict):
+        # send a msg to another user inbox ... can be here in this worker or in another :|
+        await r.publish(f"user_inbox:{target_user_id}", json.dumps(message))
 
     async def broadcast_to_users(self, participant_ids: List[int], message: dict):
         for user_id in participant_ids:
@@ -192,11 +251,18 @@ async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(ge
     session_id = websocket.cookies.get("session_id")
 
     # session validate
-    if not session_id or session_id not in active_users_sessions:
+    if not session_id:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    user_id = active_users_sessions[session_id]["user_id"]
+    user_id = await r.get(f"session:{session_id}")
+
+    if not user_id:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    user_id = int(user_id)
+
     await websocket_manager.connect(websocket, user_id, db)
     try:
         while True:
@@ -219,18 +285,12 @@ async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(ge
                 )
 
     except WebSocketDisconnect:
-        websocket_manager.disconnect(websocket, user_id)
-        await change_user_status(db, user_id, "offline")
-        await websocket_manager.broadcast_to_users(
-            await load_user_chats(db, user_id),
-            {"type": "user_state", "user_id": user_id, "user_state": "offline"}
-        )
+        await websocket_manager.disconnect(websocket, user_id, db)
+
 
 @app.post("/sendMessages", response_model=MessagesResponse)
 async def user_send_message(msg_data: MessageCreate,
-                       user_session: dict = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
-    user_id = user_session["user_id"]
-
+                       user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
     if not await check_user_in_chat(db, user_id, msg_data.chat_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -268,8 +328,7 @@ async def user_send_message(msg_data: MessageCreate,
 
 @app.get("/changeUserState")
 async def change_user_state(state: Literal["online", "offline"],
-                            user_session: dict = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
-    user_id = user_session["user_id"]
+                            user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
     await change_user_status(db, user_id, state)
 
     await websocket_manager.broadcast_to_users(
@@ -281,13 +340,17 @@ async def change_user_state(state: Literal["online", "offline"],
 
 @app.get("/me", response_model=UserFullInfResponse)
 async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    created this function to check if user session cookie still exists
+    to join direct without login every time ...
+    """
 
     session_id = request.cookies.get("session_id")
+    user_id = await r.get(f"session:{session_id}")
 
-    if session_id not in  active_users_sessions:
+    if not user_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user_id = active_users_sessions[session_id]["user_id"]
-    user = await get_user_full_inf(db=db, user_id=user_id)
+    user = await get_user_full_inf(db=db, user_id=int(user_id))
 
     return user
