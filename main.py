@@ -39,8 +39,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
-r = redis.Redis(connection_pool=redis_pool)
+r : redis.Redis | None = None
+@app.on_event("startup")
+async def startup():
+    global r
+    redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
+    r = redis.Redis(connection_pool=redis_pool)
+    # clean the memory before start
+    await r.flushall()
+
+@app.on_event("shutdown")
+async def shutdown():
+    # close the db
+    await r.close()
+
 
 SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
 
