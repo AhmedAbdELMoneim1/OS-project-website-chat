@@ -371,3 +371,12 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     user = await get_user_full_inf(db=db, user_id=int(user_id))
 
     return user
+
+@app.post("/logout")
+async def session_logout(request: Request):
+    session_id = request.cookies.get("session_id")
+    user_id = await r.get(f"session:{session_id}")
+    if not user_id:  # mmm...
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    await r.delete(f"session:{session_id}")
+    return status.HTTP_200_OK
