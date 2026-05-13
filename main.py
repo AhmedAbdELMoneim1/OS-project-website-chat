@@ -29,6 +29,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # :TODO manage workers and redis and how to create it   ----> DOME ✅
 # :TODO user status --> make message not_sent -> sent -> sent&read   ----> skipped now
 
+# :TODO logout endpoint --> delete user session   ----> DOME ✅
+# :TODO add middleware with implementation and --manage rate limit of user with redis--
+# :TODO make our server with https not http
+# :TODO make get_password_hash & verify_password asyncio
+
 app = FastAPI()
 
 app.add_middleware(
