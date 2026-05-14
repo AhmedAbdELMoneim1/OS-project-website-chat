@@ -8,3 +8,5 @@ pydantic
 websockets
 passlib[bcrypt]
 bcrypt<4.0.0
+redis[hiredis]
+aiosmtplib

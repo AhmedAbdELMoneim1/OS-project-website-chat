@@ -725,7 +725,7 @@
       <div class="auth-switch">No account? <a id="go-register">Create one</a></div>
     </div>
 
-    <!-- REGISTER -->
+    <!-- REGISTER — Step 1: details + send OTP -->
     <div id="register-form" class="hidden">
       <div class="auth-title">Create account</div>
       <div class="auth-sub">Join Streamline today</div>
@@ -747,8 +747,23 @@
         <label>Password</label>
         <input type="password" id="reg-password" placeholder="••••••••" />
       </div>
-      <button class="btn-primary" id="btn-register">Create Account</button>
+      <button class="btn-primary" id="btn-register">Continue</button>
       <div class="auth-switch">Already have one? <a id="go-login">Sign in</a></div>
+    </div>
+
+    <!-- REGISTER — Step 2: OTP verification -->
+    <div id="otp-form" class="hidden">
+      <div class="auth-title">Verify your email</div>
+      <div class="auth-sub" id="otp-sub">We sent a 6-digit code to your email.</div>
+      <div class="form-group">
+        <label>One-time code</label>
+        <input type="text" id="reg-otp" placeholder="123456" maxlength="6"
+               autocomplete="one-time-code" inputmode="numeric" />
+      </div>
+      <button class="btn-primary" id="btn-verify-otp">Verify &amp; Create Account</button>
+      <div class="auth-switch" style="margin-top:.75rem">
+        Wrong email? <a id="go-back-register">Go back</a>
+      </div>
     </div>
   </div>
 </div>
@@ -860,6 +875,7 @@ const state = {
   isTyping:        false,
   typingTimer:     null,
   isDark:          localStorage.getItem('sl-dark') === 'true',
+  pendingReg:      null,   // holds { firstName, lastName, email, password } during OTP flow
 };
 
 // ════════════════════════════════════════════════════════════════════
@@ -943,6 +959,7 @@ async function login() {
   btn.textContent = 'Sign In';
 }
 
+// ── Step 1: validate email & send OTP ───────────────────────────────
 async function register() {
   const firstName = $('reg-first').value.trim();
   const lastName  = $('reg-last').value.trim();
@@ -953,8 +970,63 @@ async function register() {
 
   const btn = $('btn-register');
   btn.disabled = true;
-  btn.textContent = 'Creating…';
+  btn.textContent = 'Sending code…';
 
+  try {
+    const res = await fetch(`${API}/validateEmail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+
+    if (res.ok) {
+      // Stash registration data so step 3 can use it
+      state.pendingReg = { firstName, lastName, email, password };
+      $('otp-sub').textContent = `We sent a 6-digit code to ${email}.`;
+      showOtp();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.detail || 'Could not send verification code.');
+    }
+  } catch { alert('Connection error.'); }
+
+  btn.disabled = false;
+  btn.textContent = 'Continue';
+}
+
+// ── Step 2: verify OTP ───────────────────────────────────────────────
+async function verifyOtp() {
+  const otp = $('reg-otp').value.trim();
+  if (!otp) return alert('Please enter the code.');
+
+  const { firstName, lastName, email, password } = state.pendingReg ?? {};
+  if (!email) return showRegister();
+
+  const btn = $('btn-verify-otp');
+  btn.disabled = true;
+  btn.textContent = 'Verifying…';
+
+  try {
+    const res = await fetch(`${API}/validateOTP`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp })
+    });
+
+    if (res.ok) {
+      await completeRegistration(firstName, lastName, email, password);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.detail || 'Invalid or expired code.');
+    }
+  } catch { alert('Connection error.'); }
+
+  btn.disabled = false;
+  btn.textContent = 'Verify & Create Account';
+}
+
+// ── Step 3: actual registration ──────────────────────────────────────
+async function completeRegistration(firstName, lastName, email, password) {
   try {
     const res = await fetch(`${API}/register`, {
       method: 'POST',
@@ -964,6 +1036,8 @@ async function register() {
     });
 
     if (res.ok) {
+      state.pendingReg = null;
+      $('reg-otp').value = '';
       alert('Registration successful! Please sign in.');
       showLogin();
     } else {
@@ -971,9 +1045,6 @@ async function register() {
       alert(err.detail || 'Registration failed.');
     }
   } catch { alert('Connection error.'); }
-
-  btn.disabled = false;
-  btn.textContent = 'Create Account';
 }
 
 async function logout() {
@@ -994,11 +1065,19 @@ async function logout() {
 function showLogin() {
   $('login-form').classList.remove('hidden');
   $('register-form').classList.add('hidden');
+  $('otp-form').classList.add('hidden');
 }
 
 function showRegister() {
   $('login-form').classList.add('hidden');
   $('register-form').classList.remove('hidden');
+  $('otp-form').classList.add('hidden');
+}
+
+function showOtp() {
+  $('register-form').classList.add('hidden');
+  $('otp-form').classList.remove('hidden');
+  $('reg-otp').focus();
 }
 
 function enterApp() {
@@ -1524,8 +1603,10 @@ function closeModal() { $('modal-new-chat').classList.add('hidden'); }
 // ════════════════════════════════════════════════════════════════════
 $('btn-login').addEventListener('click', login);
 $('btn-register').addEventListener('click', register);
+$('btn-verify-otp').addEventListener('click', verifyOtp);
 $('go-register').addEventListener('click', showRegister);
 $('go-login').addEventListener('click', showLogin);
+$('go-back-register').addEventListener('click', showRegister);
 $('btn-logout').addEventListener('click', logout);
 
 $('btn-theme').addEventListener('click', () => {
@@ -1544,6 +1625,7 @@ $('new-chat-user-id').addEventListener('keydown', e => { if (e.key === 'Enter') 
 // Auth form keyboard shortcuts
 $('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 $('reg-password').addEventListener('keydown', e => { if (e.key === 'Enter') register(); });
+$('reg-otp').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtp(); });
 
 // Message input
 const msgInput = $('msg-input');

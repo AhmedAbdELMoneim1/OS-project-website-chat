@@ -2,13 +2,14 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import declarative_base
 from dotenv import load_dotenv
 import os
+from urllib.parse import quote_plus
 
 load_dotenv()
 
 database_host = os.getenv("DATA_BASE_HOST")
 database_name = os.getenv("DATA_BASE_NAME")
 database_user = os.getenv("DATA_BASE_USER")
-database_pass = os.getenv("DATA_BASE_PASS")
+database_pass = quote_plus(os.getenv("DATA_BASE_PASS"))  # quote_plus to solve pass can with not supported symbols
 
 # mmm.. think into it as a sqlalchemy manager of sessions, query texts
 # and the aiomysql is the driver that it used to call the db server

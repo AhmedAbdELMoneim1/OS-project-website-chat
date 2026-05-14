@@ -3,3 +3,4 @@ venv/
 DB/
 __pycache__/
 .idea/
+front_versions/
