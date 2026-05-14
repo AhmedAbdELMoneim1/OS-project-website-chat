@@ -957,7 +957,32 @@ body {
         <div class="auth-sub">Join and start chatting today.</div>
         <div class="auth-error" id="reg-error"></div>
         <div class="form-row">
-          <div class="form-group">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="reg-email" placeholder="you@example.com" />
+        <button class="btn-primary" id="btn-register">Continue</button>
+        <div class="auth-switch">Already have an account? <a id="go-login">Log In</a></div>
+        </div>
+      </div>
+      </div>
+    <!-- Check OTP -->
+     <div id="otp-form" class="hidden">
+      <div class="auth-title">Create account</div>
+      <div class="auth-sub">Join Streamline today</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Enter OTP:</label>
+          <label for="otp-input"></label><input type="text" id="otp-input" placeholder="123456" />
+        </div>
+     </div>
+        <button class="btn-primary" id="btn-check-otp">Next</button>
+        <button class="btn-primary" id="back-to-reg">Back</button>
+    </div>
+<!--      Take Register Data-->
+     <div id="reg-data-form" class="hidden">
+      <div class="auth-title">Create account</div>
+      <div class="auth-sub">Join Streamline today</div>
+        <div class="form-group">
             <label>First name</label>
             <input type="text" id="reg-first" placeholder="Ali" />
           </div>
@@ -965,21 +990,16 @@ body {
             <label>Last name</label>
             <input type="text" id="reg-last" placeholder="Hassan" />
           </div>
-        </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="reg-email" placeholder="you@example.com" />
-        </div>
-        <div class="form-group">
+         <div class="form-group">
           <label>Password</label>
-          <input type="password" id="reg-password" placeholder="••••••••" />
-        </div>
-        <button class="btn-primary" id="btn-register">Continue</button>
-        <div class="auth-switch">Already have an account? <a id="go-login">Log In</a></div>
+          <input type="password" id="reg-password" placeholder="***********" />
+         </div>
+        <button class="btn-primary" id="btn-reg-complete">Next</button>
+        <button class="btn-primary" id="back-to-otp-check">Back</button>
+      </div>
       </div>
     </div>
   </div>
-</div>
 
 <!-- APP -->
 <div id="app-screen" class="hidden">
@@ -999,17 +1019,13 @@ body {
         <button class="btn-icon" id="btn-new-chat" title="New message" style="font-size:18px">✏️</button>
       </div>
     </div>
-
     <div class="sidebar-search">
       <input class="search-input" id="search-input" placeholder="🔍  Find a conversation…" />
     </div>
-
     <div class="section-label">
       Direct Messages
     </div>
-
     <div class="chats-list" id="chats-list"></div>
-
     <div class="sidebar-footer">
       <div class="avatar" id="current-avatar" style="background:linear-gradient(135deg,#f59e0b,#ef4444);width:32px;height:32px;font-size:.75rem">?</div>
       <div class="footer-user">
@@ -1227,32 +1243,79 @@ async function login() {
   btn.disabled = false; btn.textContent = 'Log In';
 }
 
+async function showOTP(){
+  $('otp-form').classList.remove('hidden');
+  $('register-form').classList.add('hidden');
+  const email = $('reg-email').value.trim();
+  if (!email) { showAuthError('reg-error', 'Please fill all fields.'); return; }
+  try {
+    const res = await fetch(`${API}/validateEmail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json'},
+      credentials: 'include',
+      body: JSON.stringify({email: email})
+    });
+    if (res.ok) {
+      // alert("an OTP has been sent to your email.")
+      showAuthError('login-error', '', false); /* clear */ }
+    else {
+      const err = await res.json().catch(() => ({}));
+      showAuthError('reg-error', err.detail || 'Registration failed.');
+    }
+  } catch { showAuthError('reg-error', 'Connection error.'); }
+}
+
+async function backToRegister(){
+  $('otp-form').classList.add('hidden');
+  $('register-form').classList.remove('hidden');
+}
+
+async function checkOTP(){
+  const email = $('reg-email').value.trim();
+  const otp  = $('otp-input').value.trim();
+   try {
+    const res = await fetch(`${API}/validateOTP`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({email, otp}),
+    });
+    if (res.ok) {showRegisterDataEntry(); showAuthError('login-error', '', false); /* clear */ }
+    else {
+      const err = await res.json().catch(() => ({}));
+      showAuthError('reg-error', err.detail || 'Registration failed.');
+    }
+  } catch { showAuthError('reg-error', 'Connection error.'); }
+}
+
+async function backToOTP() {
+  $('reg-data-form').classList.add('hidden');
+  $('otp-form').classList.remove('hidden');
+}
+
 async function register() {
   const firstName = $('reg-first').value.trim();
   const lastName  = $('reg-last').value.trim();
   const email     = $('reg-email').value.trim();
   const password  = $('reg-password').value;
   if (!firstName || !lastName || !email || !password) { showAuthError('reg-error', 'Please fill all fields.'); return; }
-
-  const btn = $('btn-register');
-  btn.disabled = true; btn.textContent = 'Creating…';
   hideAuthError('reg-error');
-
   try {
     const res = await fetch(`${API}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ first_name: firstName, last_name: lastName, email, password })
+      body: JSON.stringify({ first_name: firstName, last_name: lastName, email, password}),
     });
-    if (res.ok) { showLogin(); showAuthError('login-error', '', false); /* clear */ }
+    if (res.ok) {
+      showLogin();
+      showAuthError('login-error', '', false);/* clear */
+      $("reg-data-form").classList.add("hidden")}
     else {
       const err = await res.json().catch(() => ({}));
       showAuthError('reg-error', err.detail || 'Registration failed.');
     }
   } catch { showAuthError('reg-error', 'Connection error.'); }
-
-  btn.disabled = false; btn.textContent = 'Continue';
 }
 
 async function logout() {
@@ -1267,7 +1330,6 @@ async function logout() {
   $('auth-screen').classList.remove('hidden');
   showLogin();
 }
-
 function showLogin() {
   $('login-form').classList.remove('hidden');
   $('register-form').classList.add('hidden');
@@ -1275,6 +1337,11 @@ function showLogin() {
 function showRegister() {
   $('login-form').classList.add('hidden');
   $('register-form').classList.remove('hidden');
+}
+function showRegisterDataEntry(){
+  $('otp-form').classList.add('hidden');
+  $('reg-data-form').classList.remove('hidden');
+
 }
 function showAuthError(id, msg) {
   const el = $(id);
@@ -1736,10 +1803,14 @@ function closeSidebar() {
 // EVENT WIRING
 // ══════════════════════════════════════════════════════════════
 $('btn-login').addEventListener('click', login);
-$('btn-register').addEventListener('click', register);
+$('btn-register').addEventListener('click', showOTP);
+$('btn-reg-complete').addEventListener('click', register);
+$('back-to-otp-check').addEventListener('click', backToOTP);
+$('btn-check-otp').addEventListener('click', checkOTP);
 $('go-register').addEventListener('click', showRegister);
 $('go-login').addEventListener('click', showLogin);
 $('btn-logout').addEventListener('click', logout);
+$('back-to-reg').addEventListener('click', backToRegister);
 
 $('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
 $('reg-password').addEventListener('keydown', e => { if (e.key === 'Enter') register(); });

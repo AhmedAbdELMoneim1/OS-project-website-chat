@@ -4,6 +4,7 @@ import uuid
 
 import asyncio
 from fastapi import FastAPI, HTTPException, Cookie, Depends, status, WebSocket, WebSocketDisconnect, Request
+from fastapi.params import Body
 from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import redis.asyncio as redis
@@ -20,9 +21,12 @@ from DataLayer.chats import (load_user_chats_with_last_msg_id, create_two_users_
 
 from DTO.schemas import (UserFullInf, ChatListResponse, UserLoginInf,
                          UserInfResponse, MessagesResponse, MessageCreate,
-                         UserFullInfResponse)
+                         UserFullInfResponse,  UserRegisterInf)
 
 from passlib.context import CryptContext
+
+from util.email_auth import send_email, generate_otp
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # :TODO add real email auth key checker
@@ -85,7 +89,7 @@ async def get_user_session(session_id: str | None = Cookie(default=None)):
 
 @app.get("/")
 async def root():
-    return FileResponse("front_versions/index.html")
+    return FileResponse("front_versions/index_v2.html")
 
 @app.post("/login")
 async def login(
@@ -118,19 +122,44 @@ async def login(
 
 @app.post("/register", response_model=UserInfResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserFullInf, db: AsyncSession = Depends(get_db)):
-    existing_user = await check_user(db, user_data.email)
-
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
     new_user = await create_user(db,
                                  first_name=user_data.first_name,
                                  last_name=user_data.last_name,
                                  email=user_data.email,
                                  password_hash=get_password_hash(user_data.password))
     return new_user
+
+@app.post("/validateEmail")
+async def validateEmail(email: str = Body(..., embed=True), db: AsyncSession = Depends(get_db)):
+    existing_user = await check_user(db, email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    key = f"otp:{email}"
+    if await r.getex(key) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="OTP already generated"
+        )
+    otp = await generate_otp()
+    await send_email(email, otp)
+    await r.setex(key, 300, get_password_hash(otp))
+    return status.HTTP_200_OK
+
+@app.post("/validateOTP")
+async def validateOTP(register_data: UserRegisterInf):
+    val = await r.getex(f"otp:{register_data.email}")
+    if (not register_data
+            or val is None
+            or not verify_password(register_data.otp, val)):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="OTP is wrong or expired"
+        )
+    await r.delete(f"otp:{register_data.email}")
+    return status.HTTP_200_OK
 
 @app.get("/loadChats", response_model=List[ChatListResponse])
 async def load_chats(user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):

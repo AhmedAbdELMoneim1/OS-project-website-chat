@@ -29,6 +29,10 @@ class UserLoginInf(BaseModel):
     email: EmailStr = Field(description="email")
     password: str = Field(min_length=8, description="password")
 
+class UserRegisterInf(BaseModel):
+    email: EmailStr = Field(description="email")
+    otp: str = Field(description="otp", max_length=6, min_length=6)
+
 class UserInfResponse(BaseModel):
     user_id: int
     first_name: str
