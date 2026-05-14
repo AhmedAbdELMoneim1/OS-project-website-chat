@@ -56,7 +56,7 @@ def get_user_session(session_id: str | None = Cookie(default=None)):
 
 @app.get("/")
 async def root():
-    return FileResponse("front_versions/index_v2.html")
+    return FileResponse("front_versions/index.html")
 
 @app.post("/login")
 async def login(
