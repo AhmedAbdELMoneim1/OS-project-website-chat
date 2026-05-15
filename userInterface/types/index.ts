@@ -3,7 +3,7 @@ export type state = {
     chats: chat[];
     filteredChats: chat[] | null;
     activeChat: chat | null;
-    messages: [];
+    messages: message[];
     onlineUsers: Set<number>;
     typingChats: Map<number, number>;
     hasMoreMessages: boolean;
@@ -22,4 +22,14 @@ export type chat = {
     from_user_id: number | null;
     message_text: string | null;
     last_message_time: string | null;
+    is_read?: boolean;
+};
+
+export type message = {
+    message_id: number;
+    chat_id: number;
+    from_user_id: number;
+    message_text: string;
+    created_at: string;
+    is_read?: boolean;
 };

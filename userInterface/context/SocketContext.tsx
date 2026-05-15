@@ -44,9 +44,20 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
                     // If this message is for the active chat, update messages too
                     if (prev.activeChat?.chat_id === newMessage.chat_id) {
+                        const normalizedMessage = {
+                            ...newMessage,
+                            message_id: newMessage.message_id,
+                            chat_id: newMessage.chat_id,
+                            from_user_id: newMessage.from_user_id || newMessage.sender_id,
+                            message_text: newMessage.message || newMessage.message_text,
+                            created_at: newMessage.time || newMessage.created_at || new Date().toISOString(),
+                            is_read: newMessage.is_read || false
+                        };
+
                         // Check if message already exists to avoid duplicates
-                        if (!prev.messages.some(m => m.message_id === newMessage.message_id)) {
-                            newState.messages = [...prev.messages, newMessage];
+                        const messages = prev.messages || [];
+                        if (!messages.some(m => m.message_id === normalizedMessage.message_id)) {
+                            newState.messages = [...messages, normalizedMessage];
                         }
                     }
                 } else if (data.type === 'typing') {
