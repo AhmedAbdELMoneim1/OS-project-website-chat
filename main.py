@@ -110,7 +110,8 @@ class CustomMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CustomMiddleware)
 
 allow_origins = [
-    "*" # our frontend domain should be here
+    "https://entropychat.netlify.app", # our frontend domain should be here
+    "http://localhost:8000"
 ]
 
 app.add_middleware(
