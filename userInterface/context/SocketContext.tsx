@@ -41,7 +41,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                         }
                         return chat;
                     });
-                    
+
                     // If this message is for the active chat, update messages too
                     if (prev.activeChat?.chat_id === newMessage.chat_id) {
                         // Check if message already exists to avoid duplicates

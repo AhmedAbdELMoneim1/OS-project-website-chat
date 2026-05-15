@@ -40,6 +40,7 @@ export default function Login() {
                 credentials: 'include',
                 body: JSON.stringify({ email, password })
             });
+
             if (res.ok) {
                 setLoggingIn(false);
                 setLoginError(false);

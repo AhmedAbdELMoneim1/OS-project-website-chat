@@ -3,20 +3,22 @@ import { AnimateIcon } from "./animate-ui/icons/icon";
 import { MessageSquareMore } from "./animate-ui/icons/message-square-more";
 import { SunMedium } from "./animate-ui/icons/sun-medium";
 import { Moon } from "./animate-ui/icons/moon";
-import { DoorClosed, DoorOpen, Pencil, PencilLine } from "lucide-react";
 import { Search } from "./animate-ui/icons/search";
 import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import AddChatDialog from "./AddChatDialog";
 import { useChats } from "@/hooks/useChats";
 import { chat } from "@/types";
+import Logout from "./Logout";
 
-export default function SideBar() {
+interface ChatMainProps {
+    sidebarOpen: boolean;
+}
+
+export default function SideBar({ sidebarOpen }: ChatMainProps) {
 
     const { appState, setAppState, isDark, setIsDark } = useAuth();
     const { fetchChats } = useChats();
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [hoverLeave, setHoverLeave] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [foundChats, setFoundChats] = useState<chat[]>([]);
     const [displayChats, setDisplayChats] = useState<chat[]>([]);
@@ -28,12 +30,19 @@ export default function SideBar() {
     }, [appState.chats.length, fetchChats]);
 
     useEffect(() => {
-        setDisplayChats(searchInput === '' ? appState.chats : foundChats);
+        const chatsToDisplay = searchInput === '' ? appState.chats : foundChats;
+        const sortedChats = [...chatsToDisplay].sort((a, b) => {
+            const timeA = a.last_message_time ? new Date(a.last_message_time).getTime() : 0;
+            const timeB = b.last_message_time ? new Date(b.last_message_time).getTime() : 0;
+            return timeB - timeA;
+        });
+        setDisplayChats(sortedChats);
     }, [foundChats, appState.chats, searchInput]);
 
     const handleThemeToggle = () => {
-        setIsDark(!isDark);
-        localStorage.setItem('sl-dark', String(isDark));
+        const newIsDark = !isDark;
+        setIsDark(newIsDark);
+        localStorage.setItem('sl-dark', String(newIsDark));
     }
 
     const getGradientClass = (userId: number) => {
@@ -65,16 +74,12 @@ export default function SideBar() {
         setFoundChats(searchResults);
     };
 
-    const handleLogout = () => {
-        setAppState(prev => ({ ...prev, currentUser: null }));
-    }
-
     return (
         <div className={cn(
             "w-sidebar min-w-sidebar bg-mid flex flex-col transition-transform duration-120 ease z-10 relative max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:w-[80vw] max-sm:max-w-[300px] shadow-lg",
             sidebarOpen ? "max-sm:translate-x-0" : "max-sm:-translate-x-full"
         )} id="sidebar">
-            <div className="p-3.5 flex items-center justify-between gap-2 text-(--text-primary)">
+            <div className="p-3.5 flex items-center justify-between gap-2 text-primary">
                 <AnimateIcon animateOnHover completeOnStop>
                     <div className="flex items-center gap-2 font-bold text-[0.9375rem] tracking-tight flex-1 min-w-0 cursor-default">
                         <div className="w-7 h-7 bg-brand text-[#f2f3f5] rounded-[7px] flex items-center justify-center text-sm flex-shrink-0"><MessageSquareMore size={24} /></div>
@@ -89,13 +94,13 @@ export default function SideBar() {
             </div>
 
             <AnimateIcon animateOnHover completeOnStop >
-                <div className="p-2 border-y border-border relative">
+                <div className="p-2 border-y border-border relative text-secondary">
                     <Search size={20} className="absolute left-4 top-1/2 transform -translate-y-1/2" />
-                    <input className="w-full bg-dark rounded-sm p-1.5 px-4 pl-10 font-primary text-[0.8125rem] outline-none" id="search-input" placeholder="Find a conversation…" value={searchInput} onChange={(e) => handleChatSearch(e.target.value)} />
+                    <input className="w-full bg-dark rounded-sm p-1.5 px-4 pl-10 font-primary text-[0.8125rem] text-primary outline-none placeholder:text-muted" id="search-input" placeholder="Find a conversation…" value={searchInput} onChange={(e) => handleChatSearch(e.target.value)} />
                 </div>
             </AnimateIcon>
 
-            <div className="p-4 px-3 pb-1 text-[0.6875rem] font-bold uppercase tracking-widest flex items-center justify-between">
+            <div className="p-4 px-3 pb-1 text-[0.6875rem] font-bold uppercase tracking-widest flex items-center justify-between text-muted">
                 Direct Messages
             </div>
 
@@ -111,16 +116,16 @@ export default function SideBar() {
                         const isTyping = appState.typingChats.has(chat.chat_id);
                         const isActive = appState.activeChat?.chat_id === chat.chat_id;
                         const isMine = chat.from_user_id === appState.currentUser?.user_id;
-                        const initials = (chat.first_name?.charAt(0) || '') + (chat.last_name?.charAt(0) || '');
+                        const imgAlt = (chat.first_name?.charAt(0) || '') + (chat.last_name?.charAt(0) || '');
 
-                        let previewHtml: React.ReactNode = <span style={{ opacity: 0.4 }}>No messages yet</span>;
+                        let preview: React.ReactNode = <span style={{ opacity: 0.4 }}>No messages yet</span>;
                         if (isTyping) {
-                            previewHtml = <span className="text-brand font-medium animate-pulse">typing…</span>;
+                            preview = <span className="text-brand font-medium animate-pulse">typing…</span>;
                         } else if (chat.message_text) {
-                            previewHtml = (
+                            preview = (
                                 <>
                                     {isMine && <span className="text-primary font-medium">You: </span>}
-                                    {chat.message_text.slice(0, 60)}
+                                    {chat.message_text}
                                 </>
                             );
                         }
@@ -137,7 +142,7 @@ export default function SideBar() {
                                 <div className={cn(
                                     "w-10 h-10 rounded-full text-white text-sm font-bold flex items-center justify-center relative flex-shrink-0", getGradientClass(chat.another_user_id)
                                 )}>
-                                    {initials}
+                                    {imgAlt}
                                     <div className={cn(
                                         "absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-mid",
                                         isOnline ? "bg-emerald-500" : "bg-gray-500"
@@ -153,7 +158,7 @@ export default function SideBar() {
                                         )}
                                     </div>
                                     <div className="text-[0.8125rem] text-secondary truncate">
-                                        {previewHtml}
+                                        {preview}
                                     </div>
                                 </div>
                             </div>
@@ -166,11 +171,9 @@ export default function SideBar() {
                 <div className="w-9 h-9 rounded-full bg-linear-225 from-[#F59E0B] to-[#EF4444] text-[0.8125rem] font-bold flex items-center justify-center flex-shrink-0 relative tracking-tight cursor-default" id="current-avatar">{(appState.currentUser?.first_name.charAt(0) ? appState.currentUser?.first_name.charAt(0) : '') + (appState.currentUser?.last_name.charAt(0) ? appState.currentUser?.last_name.charAt(0) : '')}</div>
                 <div className="flex-1 min-w-0 cursor-default">
                     <div className="text-[0.875rem] font-semibold text-primary whitespace-nowrap overflow-hidden text-ellipsis" id="current-name">{appState.currentUser?.first_name + " " + appState.currentUser?.last_name}</div>
-                    <div className="text-xs " id="current-tag">{"#" + appState.currentUser?.user_id.toString().padStart(4, '0')}</div>
+                    <div className="text-xs text-secondary" id="current-tag">{"#" + appState.currentUser?.user_id.toString().padStart(4, '0')}</div>
                 </div>
-                <button className="w-[30px] h-[30px] rounded-sm bg-transparent cursor-pointer flex items-center justify-center text-sm transition-colors hover:bg-hover hover:text-primary" id="btn-logout" title="Log out" onMouseLeave={() => setHoverLeave(false)} onMouseEnter={() => setHoverLeave(true)} onClick={handleLogout}>
-                    {hoverLeave ? <DoorOpen /> : <DoorClosed />}
-                </button>
+                <Logout />
             </div>
         </div>
     )

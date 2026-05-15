@@ -5,7 +5,7 @@ export type state = {
     activeChat: chat | null;
     messages: [];
     onlineUsers: Set<number>;
-    typingChats: Map<number, boolean>;
+    typingChats: Map<number, number>;
     hasMoreMessages: boolean;
     isLoadingMore: boolean;
     oldestTimestamp: number | null;

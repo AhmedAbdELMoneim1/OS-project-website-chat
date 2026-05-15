@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Menu } from "@/components/animate-ui/icons/menu";
 import { useSocket } from "@/context/SocketContext";
 import { API_URL } from "@/lib/config";
+import { Ellipsis } from "./animate-ui/icons/ellipsis";
 
 interface ChatMainProps {
     handleSidebarToggle: () => void;
@@ -36,17 +37,17 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
             try {
                 // Fetch up to 100 messages before the year 2099 to avoid timezone mismatch bugs 
                 // between frontend UTC and backend local naive datetime storage.
-                const response = await fetch(`${API_URL}/loadUserChat?chat_id=${activeChatId}&from_datetime=2099-12-31T23:59:59.000Z`, {
+                const res = await fetch(`${API_URL}/loadUserChat?chat_id=${activeChatId}&from_datetime=2099-12-31T23:59:59.000Z`, {
                     credentials: 'include'
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
+                if (res.ok) {
+                    const data = await res.json();
                     // The backend returns order_by(created_at.desc()), meaning newest first.
                     // We need to reverse it so the newest is at the bottom of the UI.
                     setMessages(data.reverse());
                 } else {
-                    console.error("Failed to load messages:", await response.text());
+                    console.error("Failed to load messages:", await res.text());
                 }
             } catch (error) {
                 console.error("Error fetching messages:", error);
@@ -69,9 +70,12 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
     };
 
     const activeChatName = appState.activeChat ? `${appState.activeChat.first_name} ${appState.activeChat.last_name}`.trim() : '';
-    const activeChatInitials = appState.activeChat ? (appState.activeChat.first_name?.charAt(0) || '') + (appState.activeChat.last_name?.charAt(0) || '') : '';
+
+    const activeChatImgAlt = appState.activeChat ? (appState.activeChat.first_name?.charAt(0) || '') + (appState.activeChat.last_name?.charAt(0) || '') : '';
+
     const isOnline = appState.activeChat ? appState.onlineUsers.has(appState.activeChat.another_user_id) : false;
-    const isOtherTyping = appState.activeChat ? appState.typingChats.get(activeChatId) === appState.activeChat.another_user_id : false;
+
+    const isOtherTyping = appState.activeChat ? appState.typingChats.get(appState.activeChat?.chat_id) === appState.activeChat.another_user_id : false;
 
     // Send typing status to server
     const sendTypingStatus = (isTyping: boolean) => {
@@ -197,12 +201,15 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
             ) : (
                 <div id="chat-view" className="flex-1 flex flex-col overflow-hidden">
                     <div className="max-sm:hidden p-3 px-5 bg-light border-b border-border flex items-center gap-3.5 shadow-[0_1px_0_var(--border)]">
-                        <div className={`w-[42px] h-[42px] rounded-full ${getGradientClass(appState.activeChat.another_user_id)} text-[#f2f3f5] text-[0.9375rem] font-bold flex items-center justify-center flex-shrink-0`} id="hdr-avatar">{activeChatInitials}</div>
+                        <div className={`w-[42px] h-[42px] rounded-full ${getGradientClass(appState.activeChat.another_user_id)} text-[#f2f3f5] text-[0.9375rem] text-lg font-bold flex items-center justify-center flex-shrink-0`} id="hdr-avatar">{activeChatImgAlt}</div>
                         <div className="flex-1 min-w-0">
                             <div className="text-[0.9375rem] font-bold" id="hdr-name">{activeChatName}</div>
                             <div className="text-[0.8125rem] flex items-center gap-1.5 mt-px">
                                 <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-text-muted'}`} id="status-dot"></span>
-                                <span id="status-text">{isOnline ? 'Online' : 'Offline'}</span>
+                                {isOtherTyping ?
+                                    <span className="text-brand font-medium text-xs animate-pulse">typing…</span> :
+                                    <span id="status-text" className="text-xs">{isOnline ? 'Online' : 'Offline'}</span>
+                                }
                             </div>
                         </div>
                     </div>
@@ -210,7 +217,7 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
                     <div className="flex-1 overflow-y-auto p-4 pb-2 scroll-smooth overscroll-contain" id="messages-container">
                         <div className="flex flex-col gap-0 pb-2" id="messages-list">
                             {messages.map((msg, index) => {
-                                const isMe = msg.from_user_id === appState.currentUser?.user_id;
+                                const isMe = String(msg.from_user_id) === String(appState.currentUser?.user_id);
                                 return (
                                     <div key={msg.message_id || index} className={`flex w-full mb-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`max-w-[75%] px-4 py-2 text-[0.9375rem] shadow-sm flex flex-col gap-1 ${isMe
@@ -229,8 +236,8 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
                         <div id="typing-row" className={`flex py-0.5 animate-in fade-in slide-in-from-bottom-1 ${isOtherTyping ? '' : 'hidden'}`}>
                             <div className="bg-mid text-primary px-3.5 py-2 rounded-lg rounded-bl-sm max-w-[72%] sm:max-w-[480px]">
                                 <div className="flex gap-1 items-center h-4">
-                                    <div className="bg-text-muted rounded-full animate-pulse text-secondary">
-                                        typing...
+                                    <div className="bg-text-muted rounded-full text-secondary font-bold text-2xl">
+                                        <Ellipsis animate="jump" />
                                     </div>
                                 </div>
                             </div>

@@ -44,6 +44,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isDark, setIsDark] = useState(true);
 
     useEffect(() => {
+        const savedTheme = localStorage.getItem('sl-dark');
+        if (savedTheme !== null) {
+            setIsDark(savedTheme === 'true');
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isDark) {
+            document.documentElement.classList.add('light');
+        } else {
+            document.documentElement.classList.remove('light');
+        }
+    }, [isDark]);
+
+    useEffect(() => {
         const checkUser = async () => {
             try {
                 const res = await fetch(`${API_URL}/me`, { credentials: "include" });

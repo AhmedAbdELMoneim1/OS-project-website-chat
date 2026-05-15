@@ -8,7 +8,8 @@ export default function Home() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const handleSidebarToggle = () => {
-        setSidebarOpen(!sidebarOpen);
+        const newSidebarOpen = !sidebarOpen;
+        setSidebarOpen(newSidebarOpen);
         console.log(sidebarOpen);
     }
 
@@ -23,7 +24,7 @@ export default function Home() {
                 />
             )}
 
-            <SideBar />
+            <SideBar sidebarOpen={sidebarOpen} />
 
             <ChatMain handleSidebarToggle={handleSidebarToggle} />
         </div>

@@ -1,6 +1,6 @@
-import { loadChats } from "@/lib/api/chatService";
 import { useCallback, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { API_URL } from "@/lib/config";
 
 export function useChats() {
     const { appState, setAppState } = useAuth();
@@ -9,8 +9,16 @@ export function useChats() {
     const fetchChats = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await loadChats();
-            setAppState(prev => ({ ...prev, chats: data }));
+            const res = await fetch(`${API_URL}/loadChats`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAppState(prev => ({ ...prev, chats: data }))
+            }
+        } catch (error) {
+            console.error("Failed to fetch chats:", error);
         } finally {
             setLoading(false);
         }

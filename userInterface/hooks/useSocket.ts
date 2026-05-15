@@ -1,5 +1,4 @@
 import { useAuth } from "@/context/AuthContext";
-import { Preahvihear } from "next/font/google";
 import { useEffect } from "react";
 
 export const useSocket = () => {
@@ -7,10 +6,6 @@ export const useSocket = () => {
 
     useEffect(() => {
         const socket = new WebSocket(`ws://localhost:8000/ws/${appState.currentUser?.user_id}`);
-
-        socket.onopen = () => {
-            console.log("Socket connected");
-        }
 
         socket.onmessage = (e) => {
             const newMessage = JSON.parse(e.data);
@@ -28,10 +23,6 @@ export const useSocket = () => {
                 })
             }))
             console.log(newMessage);
-        }
-
-        socket.onclose = () => {
-            console.log("Socket disconnected");
         }
 
         return () => {
