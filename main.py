@@ -136,8 +136,8 @@ async def shutdown():
 
 @app.get("/")
 async def root():
-    # return status.HTTP_200_OK
-    return FileResponse("front_versions/index.html") # use it for test local without front server
+    return status.HTTP_200_OK
+    # return FileResponse("front_versions/index.html") # use it for test local without front server
 
 @app.post("/login")
 async def login(
