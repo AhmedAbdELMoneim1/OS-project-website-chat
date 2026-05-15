@@ -5,3 +5,4 @@ __pycache__/
 .idea/
 front_versions/
 .env.production
+/node_modules
