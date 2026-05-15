@@ -174,7 +174,7 @@ async def register(user_data: UserFullInf, db: AsyncSession = Depends(get_db)):
                                  first_name=user_data.first_name,
                                  last_name=user_data.last_name,
                                  email=user_data.email,
-                                 password_hash=get_password_hash(user_data.password))
+                                 password_hash=await get_password_hash(user_data.password))
     return new_user
 
 @app.post("/validateEmail")
