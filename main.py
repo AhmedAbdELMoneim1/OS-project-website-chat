@@ -30,10 +30,6 @@ from passlib.context import CryptContext
 from util.email_auth import send_email, generate_otp
 from concurrent.futures import ThreadPoolExecutor
 
-# How to manage ThreadPool "maximum threads per worker"
-loop = asyncio.get_running_loop()
-loop.set_default_executor(ThreadPoolExecutor(max_workers=16)) # the normal in pool is 32 ... our server is too weak :)
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # :TODO add real email auth key checker   ----> DONE ✅
