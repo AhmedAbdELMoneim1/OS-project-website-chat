@@ -42,7 +42,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # :TODO logout endpoint --> delete user session   ----> DONE ✅
 # :TODO add middleware with implementation and --manage limit rate of user with redis--   ----> DONE ✅
-# :TODO make our server with https not http
+# :TODO make our server with https not http   ----> DONE ✅
 # :TODO make get_password_hash & verify_password asyncio   ----> DONE ✅
 
 async def get_password_hash(password: str) -> str:
