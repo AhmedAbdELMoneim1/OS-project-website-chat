@@ -68,6 +68,11 @@ async def get_user_session(session_id: str | None = Cookie(default=None)):
     return user_id
 
 app = FastAPI()
+# How to manage ThreadPool "maximum threads per worker"
+loop = asyncio.get_running_loop()
+loop.set_default_executor(ThreadPoolExecutor(max_workers=16)) # the normal in pool is 32 ... our server is too weak :)
+
+
 r : redis.Redis | None = None
 
 SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
