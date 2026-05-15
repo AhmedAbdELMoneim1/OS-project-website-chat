@@ -64,3 +64,5 @@ The app will be available at **http://localhost:8000** 🎉
 - [ ] Filled in `.env.example` with DB variables
 - [ ] Copied `.env.example` → `.env`
 - [ ] Started the server
+
+potatoes
