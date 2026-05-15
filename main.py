@@ -71,7 +71,7 @@ app = FastAPI()
 r : redis.Redis | None = None
 
 SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
-RATE_LIMIT = 5
+RATE_LIMIT = 10
 RATE_LIMIT_PER_DURATION = 1 # sec
 BAN_TIME = 60 # sec
 
@@ -115,7 +115,7 @@ allow_origins = [
 
 app.add_middleware(
     CORSMiddleware,  # Cross-Origin Resource Sharing
-    allow_origins=["*"], # should be out front only ... can localhost also
+    allow_origins=allow_origins, # should be out front only ... can localhost also
     allow_credentials=True, # Indicate that cookies should be supported for cross-origin requests.
     allow_methods=["*"], # like GET POST ...
     allow_headers=["*"],
@@ -136,7 +136,8 @@ async def shutdown():
 
 @app.get("/")
 async def root():
-    return FileResponse("front_versions/index.html")
+    # return status.HTTP_200_OK
+    return FileResponse("front_versions/index.html") # use it for test local without front server
 
 @app.post("/login")
 async def login(
