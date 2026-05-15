@@ -162,8 +162,8 @@ async def login(
         value=session_id,
         httponly=True,
         max_age=SESSION_TTL,
-        samesite="lax",
-        secure=False # Ture in real deployment in https not http :)
+        samesite="none",  # lax if front and back in same server if not use none but u must use secure with it
+        secure=True  # Ture in real deployment in https not http :)
     )
 
     return {"message": "Login successful"}
