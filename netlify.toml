@@ -1,7 +1,7 @@
 [build]
   base = "userInterface"
   command = "npm run build"
-  publish = "userInterface/.next"
+  publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
