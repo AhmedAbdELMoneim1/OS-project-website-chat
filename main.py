@@ -28,6 +28,11 @@ from DTO.schemas import (UserFullInf, ChatListResponse, UserLoginInf,
 from passlib.context import CryptContext
 
 from util.email_auth import send_email, generate_otp
+from concurrent.futures import ThreadPoolExecutor
+
+# How to manage ThreadPool "maximum threads per worker"
+loop = asyncio.get_running_loop()
+loop.set_default_executor(ThreadPoolExecutor(max_workers=16)) # the normal in pool is 32 ... our server is too weak :)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -38,13 +43,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # :TODO logout endpoint --> delete user session   ----> DONE ✅
 # :TODO add middleware with implementation and --manage limit rate of user with redis--   ----> DONE ✅
 # :TODO make our server with https not http
-# :TODO make get_password_hash & verify_password asyncio
+# :TODO make get_password_hash & verify_password asyncio   ----> DONE ✅
 
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+async def get_password_hash(password: str) -> str:
+    return await asyncio.to_thread(pwd_context.hash, password) # CPU-heavy task
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+async def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return await asyncio.to_thread(pwd_context.verify, plain_password, hashed_password) # CPU-heavy task
 
 async def get_user_session(session_id: str | None = Cookie(default=None)):
     if not session_id:
