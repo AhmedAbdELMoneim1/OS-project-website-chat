@@ -146,7 +146,7 @@ async def login(
     ):
     user = await check_user(db, user_credentials.email)
 
-    if not user or not verify_password(user_credentials.password, user.password_hash):
+    if not user or not await verify_password(user_credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid eail or password"
