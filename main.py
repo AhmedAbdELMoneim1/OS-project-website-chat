@@ -195,7 +195,7 @@ async def validateEmail(email: str = Body(..., embed=True), db: AsyncSession = D
         )
     otp = await generate_otp()
     await send_email(email, otp)
-    await r.setex(key, 300, get_password_hash(otp))
+    await r.setex(key, 300, await get_password_hash(otp))
     return status.HTTP_200_OK
 
 @app.post("/validateOTP")
@@ -203,7 +203,7 @@ async def validateOTP(register_data: UserRegisterInf):
     val = await r.getex(f"otp:{register_data.email}")
     if (not register_data
             or val is None
-            or not verify_password(register_data.otp, val)):
+            or not await verify_password(register_data.otp, val)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="OTP is wrong or expired"
