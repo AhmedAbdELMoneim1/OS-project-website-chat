@@ -5,8 +5,10 @@ import uuid
 import asyncio
 from fastapi import FastAPI, HTTPException, Cookie, Depends, status, WebSocket, WebSocketDisconnect, Request
 from fastapi.params import Body
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
 import redis.asyncio as redis
 
 from core.database import get_db
@@ -29,41 +31,14 @@ from util.email_auth import send_email, generate_otp
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# :TODO add real email auth key checker
-# :TODO manage workers and redis and how to create it   ----> DOME ✅
+# :TODO add real email auth key checker   ----> DONE ✅
+# :TODO manage workers and redis and how to create it   ----> DONE ✅
 # :TODO user status --> make message not_sent -> sent -> sent&read   ----> skipped now
 
-# :TODO logout endpoint --> delete user session   ----> DOME ✅
-# :TODO add middleware with implementation and --manage rate limit of user with redis--
+# :TODO logout endpoint --> delete user session   ----> DONE ✅
+# :TODO add middleware with implementation and --manage limit rate of user with redis--   ----> DONE ✅
 # :TODO make our server with https not http
 # :TODO make get_password_hash & verify_password asyncio
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-r : redis.Redis | None = None
-@app.on_event("startup")
-async def startup():
-    global r
-    redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
-    r = redis.Redis(connection_pool=redis_pool)
-    # clean the memory before start
-    await r.flushall()
-
-@app.on_event("shutdown")
-async def shutdown():
-    # close the db
-    await r.close()
-
-
-SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
@@ -87,9 +62,76 @@ async def get_user_session(session_id: str | None = Cookie(default=None)):
 
     return user_id
 
+app = FastAPI()
+r : redis.Redis | None = None
+
+SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
+RATE_LIMIT = 5
+RATE_LIMIT_PER_DURATION = 1 # sec
+BAN_TIME = 60 # sec
+
+class CustomMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app):
+        super().__init__(app)
+
+    async def dispatch(self, request: Request, call_next):
+        # limit rate before go to the endpoint
+        client_host_ip = f"client_host:{request.client.host}"
+
+        if await r.get(f"ban:{client_host_ip}"):
+            return JSONResponse(  # <-- NOT raise HTTPException as it handles only in endpoints not middleware
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "u banned wait .. as u make too many requests"},
+            )
+
+        requests_count = await r.incr(client_host_ip)
+
+        if requests_count == 1:
+            await r.expire(client_host_ip, RATE_LIMIT_PER_DURATION)
+
+        if requests_count > RATE_LIMIT:
+            # ban the user
+            await r.setex(f"ban:{client_host_ip}", BAN_TIME, 1)
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "Too many requests and u banned :) wait ..."},
+            )
+
+        response = await call_next(request)
+        return response
+
+# when u add a middleware ... first added is nearest to code endpoints to executes
+# this me last middleware u will add is the first layer or wall for the request when come
+app.add_middleware(CustomMiddleware)
+
+allow_origins = [
+    "*" # our frontend domain should be here
+]
+
+app.add_middleware(
+    CORSMiddleware,  # Cross-Origin Resource Sharing
+    allow_origins=["*"], # should be out front only ... can localhost also
+    allow_credentials=True, # Indicate that cookies should be supported for cross-origin requests.
+    allow_methods=["*"], # like GET POST ...
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+async def startup():
+    global r
+    redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
+    r = redis.Redis(connection_pool=redis_pool)
+    # clean the memory before start
+    await r.flushall()
+
+@app.on_event("shutdown")
+async def shutdown():
+    # close the db
+    await r.close()
+
 @app.get("/")
 async def root():
-    return FileResponse("front_versions/index_v2.html")
+    return FileResponse("front_versions/index.html")
 
 @app.post("/login")
 async def login(
@@ -102,11 +144,12 @@ async def login(
     if not user or not verify_password(user_credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="Invalid eail or password"
         )
 
     session_id = str(uuid.uuid4()) # create a session id
 
+    # set with expire
     await r.setex(f"session:{session_id}", SESSION_TTL, user.user_id)
 
     response.set_cookie(
