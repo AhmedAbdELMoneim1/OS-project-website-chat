@@ -264,7 +264,6 @@ class ConnectionManager:
         all_users_chats = await load_user_chats(db, user_id)
         if user_id not in self.active_connections:
             self.active_connections[user_id] = []
-
             # should start a single Redis listener for this user on this worker ...
             await self.__start_redis_listener_to_user_inbox(user_id)
 
