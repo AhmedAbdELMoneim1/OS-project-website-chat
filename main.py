@@ -268,17 +268,15 @@ class ConnectionManager:
             # should start a single Redis listener for this user on this worker ...
             await self.__start_redis_listener_to_user_inbox(user_id)
 
-            # user_sessions_number key for every user ... use it to check if it first session to the user
-            # if first session will be 1
-            active_sessions = await r.incr(f"user_sessions_number:{user_id}")
-
-            if active_sessions == 1:
-                await change_user_status(db, user_id, "online")
-                await websocket_manager.broadcast_to_users(
-                    all_users_chats,
-                    {"type": "user_state", "user_id": user_id, "user_state": "online"}
-                )
         self.active_connections[user_id].append(websocket)
+
+        active_sessions = await r.incr(f"user_sessions_number:{user_id}")
+        if active_sessions == 1:
+            await change_user_status(db, user_id, "online")
+            await websocket_manager.broadcast_to_users(
+                all_users_chats,
+                {"type": "user_state", "user_id": user_id, "user_state": "online"}
+            )
 
         all_users_status = [
             user_id for user_id in all_users_chats if await r.get(f"user_sessions_number:{user_id}")  # don't do this -- should be got from db with chats :)
