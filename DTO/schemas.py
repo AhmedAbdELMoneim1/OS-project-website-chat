@@ -42,7 +42,7 @@ class UserInfResponse(BaseModel):
 
 class MessageCreate(BaseModel):
     chat_id: int
-    message_text: str
+    message_text: str = Field(min_length=1, max_length=900)
 
 class MessagesResponse(BaseModel):
     message_id: int
