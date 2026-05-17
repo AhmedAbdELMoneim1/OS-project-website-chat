@@ -65,6 +65,7 @@ export default function SideBar({ sidebarOpen }: ChatMainProps) {
     const formatTime = (timeStr: string | null) => {
         if (!timeStr) return '';
         const date = new Date(timeStr);
+        date.setHours(date.getHours() + 3)
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { API_URL } from "@/lib/config";
 import { useRouter } from "next/navigation";
 import { SuccessToast } from "@/components/SuccessToast";
+import { playSound } from "@/hooks/useSound";
 
 export default function Register() {
 
@@ -48,11 +49,13 @@ export default function Register() {
                 setStep('otp');
                 setLoading(false);
                 setShowToast(true);
+                playSound('success');
             } else {
                 const error = await res.json().catch(() => ({}));
                 setLoading(false);
                 setRegisterError(true);
                 setErrorMessage(error.detail || "Failed to send OTP.");
+                playSound('error');
             }
         } catch {
             setLoading(false);
@@ -109,6 +112,7 @@ export default function Register() {
                 setLoading(false);
                 setRegisterError(true);
                 setErrorMessage(error.detail || "Registration failed.");
+                playSound('error');
             }
         } catch {
             setLoading(false);

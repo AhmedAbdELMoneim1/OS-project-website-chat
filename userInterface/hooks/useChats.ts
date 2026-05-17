@@ -16,6 +16,8 @@ export function useChats() {
             if (res.ok) {
                 const data = await res.json();
                 setAppState(prev => ({ ...prev, chats: data }))
+                // } else if (res.status === 429) {
+                //     console.error("Failed to load resource: the server responded with a status of 429 (Too Many Requests)");
             }
         } catch (error) {
             console.error("Failed to fetch chats:", error);

@@ -32,6 +32,8 @@ export default function AddChatDialog({ selectChat, loadChats }: Props) {
                 const chat = appState.chats.find(c => c.chat_id === data.chat_id);
                 if (chat) selectChat(chat);
                 else if (appState.chats.length) selectChat(appState.chats[0]);
+                // } else if (res.status === 429) {
+                //     console.error("Failed to load resource: the server responded with a status of 429 (Too Many Requests)");
             } else { alert('Failed to create chat. User may not exist.'); }
         } catch (e) {
             console.error('addChat', e);
