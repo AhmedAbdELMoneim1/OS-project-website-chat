@@ -5,8 +5,10 @@ import uuid
 import asyncio
 from fastapi import FastAPI, HTTPException, Cookie, Depends, status, WebSocket, WebSocketDisconnect, Request
 from fastapi.params import Body
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
 import redis.asyncio as redis
 
 from core.database import get_db
@@ -26,50 +28,24 @@ from DTO.schemas import (UserFullInf, ChatListResponse, UserLoginInf,
 from passlib.context import CryptContext
 
 from util.email_auth import send_email, generate_otp
+from concurrent.futures import ThreadPoolExecutor
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# :TODO add real email auth key checker
-# :TODO manage workers and redis and how to create it   ----> DOME ✅
+# :TODO add real email auth key checker   ----> DONE ✅
+# :TODO manage workers and redis and how to create it   ----> DONE ✅
 # :TODO user status --> make message not_sent -> sent -> sent&read   ----> skipped now
 
-# :TODO logout endpoint --> delete user session   ----> DOME ✅
-# :TODO add middleware with implementation and --manage rate limit of user with redis--
-# :TODO make our server with https not http
-# :TODO make get_password_hash & verify_password asyncio
+# :TODO logout endpoint --> delete user session   ----> DONE ✅
+# :TODO add middleware with implementation and --manage limit rate of user with redis--   ----> DONE ✅
+# :TODO make our server with https not http   ----> DONE ✅
+# :TODO make get_password_hash & verify_password asyncio   ----> DONE ✅
 
-app = FastAPI()
+async def get_password_hash(password: str) -> str:
+    return await asyncio.to_thread(pwd_context.hash, password) # CPU-heavy task
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-r : redis.Redis | None = None
-@app.on_event("startup")
-async def startup():
-    global r
-    redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
-    r = redis.Redis(connection_pool=redis_pool)
-    # clean the memory before start
-    await r.flushall()
-
-@app.on_event("shutdown")
-async def shutdown():
-    # close the db
-    await r.close()
-
-
-SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+async def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return await asyncio.to_thread(pwd_context.verify, plain_password, hashed_password) # CPU-heavy task
 
 async def get_user_session(session_id: str | None = Cookie(default=None)):
     if not session_id:
@@ -87,9 +63,86 @@ async def get_user_session(session_id: str | None = Cookie(default=None)):
 
     return user_id
 
+app = FastAPI()
+
+
+r : redis.Redis | None = None
+
+SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
+RATE_LIMIT = 10
+RATE_LIMIT_PER_DURATION = 1 # sec
+BAN_TIME = 60 # sec
+
+class CustomMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app):
+        super().__init__(app)
+
+    async def dispatch(self, request: Request, call_next):
+        # limit rate before go to the endpoint
+        client_host_ip = f"client_host:{request.client.host}"
+
+        if await r.get(f"ban:{client_host_ip}"):
+            return JSONResponse(  # <-- NOT raise HTTPException as it handles only in endpoints not middleware
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "u banned wait .. as u make too many requests"},
+            )
+
+        requests_count = await r.incr(client_host_ip)
+
+        if requests_count == 1:
+            await r.expire(client_host_ip, RATE_LIMIT_PER_DURATION)
+
+        if requests_count > RATE_LIMIT:
+            # ban the user
+            await r.setex(f"ban:{client_host_ip}", BAN_TIME, 1)
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": "Too many requests and u banned :) wait ..."},
+            )
+
+        response = await call_next(request)
+        return response
+
+# when u add a middleware ... first added is nearest to code endpoints to executes
+# this me last middleware u will add is the first layer or wall for the request when come
+app.add_middleware(CustomMiddleware)
+
+allow_origins = [
+    "https://entropychat-4f269.web.app", # another deployment :)
+    "https://entropychat.netlify.app", # our frontend domain should be here
+    "http://localhost:3000",
+    "http://localhost:8000"
+]
+
+app.add_middleware(
+    CORSMiddleware,  # Cross-Origin Resource Sharing
+    allow_origins=allow_origins, # should be out front only ... can localhost also
+    allow_credentials=True, # Indicate that cookies should be supported for cross-origin requests.
+    allow_methods=["*"], # like GET POST ...
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+async def startup():
+    global r
+    # How to manage ThreadPool "maximum threads per worker"
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=16)) # the normal in pool is 32 ... our server is too weak :)
+
+    redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
+    r = redis.Redis(connection_pool=redis_pool)
+    # clean the memory before start
+    await r.flushall()
+
+@app.on_event("shutdown")
+async def shutdown():
+    # close the db
+    await r.close()
+
 @app.get("/")
 async def root():
-    return FileResponse("front_versions/index.html")
+    return status.HTTP_200_OK
+    # return FileResponse("front_versions/index.html") # use it for test local without front server
 
 @app.post("/login")
 async def login(
@@ -99,14 +152,15 @@ async def login(
     ):
     user = await check_user(db, user_credentials.email)
 
-    if not user or not verify_password(user_credentials.password, user.password_hash):
+    if not user or not await verify_password(user_credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="Invalid eail or password"
         )
 
     session_id = str(uuid.uuid4()) # create a session id
 
+    # set with expire
     await r.setex(f"session:{session_id}", SESSION_TTL, user.user_id)
 
     response.set_cookie(
@@ -114,8 +168,8 @@ async def login(
         value=session_id,
         httponly=True,
         max_age=SESSION_TTL,
-        samesite="lax",
-        secure=False # Ture in real deployment in https not http :)
+        samesite="lax",  # lax if front and back in same server if not use none but u must use secure with it
+        secure=False  # Ture in real deployment in https not http :)
     )
 
     return {"message": "Login successful"}
@@ -126,7 +180,7 @@ async def register(user_data: UserFullInf, db: AsyncSession = Depends(get_db)):
                                  first_name=user_data.first_name,
                                  last_name=user_data.last_name,
                                  email=user_data.email,
-                                 password_hash=get_password_hash(user_data.password))
+                                 password_hash=await get_password_hash(user_data.password))
     return new_user
 
 @app.post("/validateEmail")
@@ -145,7 +199,7 @@ async def validateEmail(email: str = Body(..., embed=True), db: AsyncSession = D
         )
     otp = await generate_otp()
     await send_email(email, otp)
-    await r.setex(key, 300, get_password_hash(otp))
+    await r.setex(key, 300, await get_password_hash(otp))
     return status.HTTP_200_OK
 
 @app.post("/validateOTP")
@@ -153,7 +207,7 @@ async def validateOTP(register_data: UserRegisterInf):
     val = await r.getex(f"otp:{register_data.email}")
     if (not register_data
             or val is None
-            or not verify_password(register_data.otp, val)):
+            or not await verify_password(register_data.otp, val)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="OTP is wrong or expired"
@@ -213,21 +267,18 @@ class ConnectionManager:
         all_users_chats = await load_user_chats(db, user_id)
         if user_id not in self.active_connections:
             self.active_connections[user_id] = []
-
             # should start a single Redis listener for this user on this worker ...
             await self.__start_redis_listener_to_user_inbox(user_id)
 
-            # user_sessions_number key for every user ... use it to check if it first session to the user
-            # if first session will be 1
-            active_sessions = await r.incr(f"user_sessions_number:{user_id}")
-
-            if active_sessions == 1:
-                await change_user_status(db, user_id, "online")
-                await websocket_manager.broadcast_to_users(
-                    all_users_chats,
-                    {"type": "user_state", "user_id": user_id, "user_state": "online"}
-                )
         self.active_connections[user_id].append(websocket)
+
+        active_sessions = await r.incr(f"user_sessions_number:{user_id}")
+        if active_sessions == 1:
+            await change_user_status(db, user_id, "online")
+            await websocket_manager.broadcast_to_users(
+                all_users_chats,
+                {"type": "user_state", "user_id": user_id, "user_state": "online"}
+            )
 
         all_users_status = [
             user_id for user_id in all_users_chats if await r.get(f"user_sessions_number:{user_id}")  # don't do this -- should be got from db with chats :)

@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
     title: "EntropyChat",
     description: "EntropyChat - Real Time Communication",
+    icons: {
+        icon: "/icon.svg",
+    },
 };
 
 export default function RootLayout({

@@ -27,6 +27,7 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
     const prevScrollHeightRef = useRef(0);
     const [showToast, setShowToast] = useState(false);
     const [blocked, setBlocked] = useState(false);
+    const isSending = useRef(false);
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         messagesEndRef.current?.scrollIntoView({ behavior });
@@ -208,7 +209,7 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
     }, [socket, activeChatId]);
 
     const handleSendMessage = async () => {
-        if (blocked) return;
+        if (blocked || isSending.current) return;
         const messageText = message.trim();
         if (!messageText.length || !socket || !appState.currentUser) {
             console.log("Cannot send:", {
@@ -218,6 +219,9 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
             });
             return;
         }
+
+        isSending.current = true;
+        setMessage('');
 
         const payload = {
             chat_id: activeChatId,
@@ -235,7 +239,6 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
             });
 
             if (response.ok) {
-                setMessage('');
                 playSound('send');
                 // Stop typing immediately when message is sent
                 if (typingTimeoutRef.current) {
@@ -244,15 +247,23 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
                 setLocalIsTyping(false);
                 sendTypingStatus(false);
                 // the message will be added automatically from the socket 
-            } else if (response.status === 429) {
-                setShowToast(true);
-                setBlocked(true);
-                playSound('error');
             } else {
-                console.error("Failed to send message:", await response.text());
+                // Restore input on failure
+                setMessage(messageText);
+                if (response.status === 429) {
+                    setShowToast(true);
+                    setBlocked(true);
+                    playSound('error');
+                } else {
+                    console.error("Failed to send message:", await response.text());
+                }
             }
         } catch (error) {
             console.error("Error sending message:", error);
+            // Restore input on network error
+            setMessage(messageText);
+        } finally {
+            isSending.current = false;
         }
     };
 
