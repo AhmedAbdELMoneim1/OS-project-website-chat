@@ -76,6 +76,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                         newOnlineUsers.delete(data.user_id);
                     }
                     newState.onlineUsers = newOnlineUsers;
+                } else if (data.type === 'add_chat') {
+
                 } else if (data.online_users) {
                     newState.onlineUsers = new Set(data.online_users);
                 }

@@ -8,12 +8,12 @@ import type { chat } from "../types";
 
 interface Props {
     selectChat: (chat: chat) => void;
-    loadChats: () => Promise<void>;
+    loadChats: () => Promise<any>;
 }
 
 export default function AddChatDialog({ selectChat, loadChats }: Props) {
 
-    const { appState } = useAuth();
+    const { appState, setAppState } = useAuth();
 
     const [hoverPencil, setHoverPencil] = useState(false);
     const [userId, setUserId] = useState<number>();
@@ -28,12 +28,29 @@ export default function AddChatDialog({ selectChat, loadChats }: Props) {
             if (res.ok) {
                 const data = await res.json();
                 console.log(data);
-                await loadChats();
-                const chat = appState.chats.find(c => c.chat_id === data.chat_id);
-                if (chat) selectChat(chat);
-                else if (appState.chats.length) selectChat(appState.chats[0]);
-                // } else if (res.status === 429) {
-                //     console.error("Failed to load resource: the server responded with a status of 429 (Too Many Requests)");
+                
+                const updatedChats = await loadChats();
+                const chat = updatedChats?.find((c: any) => c.chat_id === data.chat_id);
+                
+                if (chat) {
+                    // Update online status in appState.onlineUsers
+                    if (data.is_online) {
+                        setAppState(prev => {
+                            const newOnlineUsers = new Set(prev.onlineUsers);
+                            newOnlineUsers.add(chat.another_user_id);
+                            return { ...prev, onlineUsers: newOnlineUsers };
+                        });
+                    } else {
+                        setAppState(prev => {
+                            const newOnlineUsers = new Set(prev.onlineUsers);
+                            newOnlineUsers.delete(chat.another_user_id);
+                            return { ...prev, onlineUsers: newOnlineUsers };
+                        });
+                    }
+                    selectChat(chat);
+                } else if (updatedChats?.length) {
+                    selectChat(updatedChats[0]);
+                }
             } else { alert('Failed to create chat. User may not exist.'); }
         } catch (e) {
             console.error('addChat', e);

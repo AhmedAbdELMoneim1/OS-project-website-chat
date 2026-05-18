@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Menu } from "@/components/animate-ui/icons/menu";
 import { useSocket } from "@/context/SocketContext";
@@ -6,6 +6,16 @@ import { API_URL } from "@/lib/config";
 import { Ellipsis } from "./animate-ui/icons/ellipsis";
 import { ErrorToast } from "./ErrorToast";
 import { playSound } from "@/hooks/useSound";
+import { Smile } from "lucide-react";
+import { detectTextDirection } from "@/lib/utils";
+
+const EMOJI_CATEGORIES = {
+    "Most Used": ["😂", "🤝", "🔥", "❤️", "☕", "🌊", "🎉", "👀", "💻", "📱", "💬"],
+    "Smileys": ["😀", "😄", "😁", "😅", "😂", "🤣", "😊", "😇", "🙂", "😉", "😍", "🥰", "😘", "😜", "😎", "🥳", "🤔", "🥺"],
+    "Gestures": ["👍", "👎", "👌", "🤞", "👏", "🙌", "🤲", "💪", "🤝"],
+    "Hearts": ["❤️", "🧡", "💛", "💔", "💖", "💗"],
+    "Random": ["☕", "🌊", "🔥", "✨", "🎉", "🎈", "🎁", "🎂", "🚀", "👑", "💯", "👀", "🌟", "💻", "📱", "💬"]
+};
 
 interface ChatMainProps {
     handleSidebarToggle: () => void;
@@ -28,6 +38,9 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
     const [showToast, setShowToast] = useState(false);
     const [blocked, setBlocked] = useState(false);
     const isSending = useRef(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
+    const messageDirection = useMemo(() => detectTextDirection(message), [message]);
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         messagesEndRef.current?.scrollIntoView({ behavior });
@@ -50,6 +63,27 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
         }
         setPrevMsgCount(messages.length);
     }, [messages, isLoadingMore]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleEmojiClick = (emoji: string) => {
+        setMessage(prev => {
+            const combined = prev + emoji;
+            return combined.slice(0, 900);
+        });
+        const input = document.getElementById("msg-input");
+        if (input) {
+            input.focus();
+        }
+    };
 
     useEffect(() => {
         if (!activeChatId) {
@@ -334,7 +368,7 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
                                             ? 'bg-brand text-white rounded-2xl rounded-tr-sm'
                                             : 'bg-mid text-primary rounded-2xl rounded-tl-sm'
                                             }`}>
-                                            <span className="leading-relaxed break-words">{msg.message_text}</span>
+                                            <span dir={detectTextDirection(msg.message_text)} className="leading-relaxed break-words whitespace-pre-wrap">{msg.message_text}</span>
                                             <span className={`text-[0.65rem] font-medium self-end ${isMe ? 'text-white/70' : 'text-muted'}`}>
                                                 {new Date(new Date(msg.created_at || new Date()).getTime() + 3 * 60 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
@@ -355,16 +389,46 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
                         <div id="messages-end" ref={messagesEndRef}></div>
                     </div>
 
-                    <div className="p-4 pt-0">
+                    <div className="p-4 pt-0 relative">
+                        {showEmojiPicker && (
+                            <div
+                                ref={emojiPickerRef}
+                                className="absolute bottom-16 right-4 w-72 max-h-80 bg-light border border-border rounded-xl shadow-2xl overflow-y-auto p-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
+                            >
+                                <div className="flex flex-col gap-3 text-primary">
+                                    {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
+                                        <div key={category}>
+                                            <div className="text-[10px] font-bold text-secondary mb-1.5 uppercase tracking-wider">{category}</div>
+                                            <div className="grid grid-cols-7 gap-1">
+                                                {emojis.map((emoji) => (
+                                                    <button
+                                                        key={emoji}
+                                                        onClick={() => handleEmojiClick(emoji)}
+                                                        className="text-2xl p-1 hover:bg-mid rounded transition-all duration-150 transform hover:scale-125 cursor-pointer active:scale-95 flex items-center justify-center"
+                                                    >
+                                                        {emoji}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="bg-input rounded-lg flex items-center gap-1.5 p-1 px-3.5 min-h-[44px] shadow-md transition-all focus-within:shadow-lg">
                             <textarea
+                                dir={messageDirection}
                                 className="flex-1 bg-transparent border-none outline-none font-primary text-base text-primary py-2.5 resize-none max-h-[160px] scrollbar-none placeholder:text-muted/60"
                                 id="msg-input"
                                 placeholder="Message…"
                                 value={message}
+                                maxLength={900}
                                 onChange={(e) => {
-                                    setMessage(e.target.value);
-                                    handleTyping();
+                                    const val = e.target.value;
+                                    if (val.length <= 900) {
+                                        setMessage(val);
+                                        handleTyping();
+                                    }
                                 }}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -373,9 +437,18 @@ export default function ChatMain({ handleSidebarToggle }: ChatMainProps) {
                                     }
                                 }}
                             ></textarea>
-                            <button 
-                                className="p-2 text-brand hover:text-brand-hover disabled:opacity-30 disabled:grayscale transition-colors cursor-pointer" 
-                                id="btn-send" 
+                            <button
+                                type="button"
+                                className="p-2 text-secondary hover:text-primary transition-colors cursor-pointer"
+                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            >
+                                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-none stroke-current stroke-2">
+                                    <Smile />
+                                </svg>
+                            </button>
+                            <button
+                                className="p-2 text-brand hover:text-brand-hover disabled:opacity-30 disabled:grayscale transition-colors cursor-pointer"
+                                id="btn-send"
                                 onClick={handleSendMessage}
                                 disabled={blocked || !message.trim()}
                             >

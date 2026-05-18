@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     title: "EntropyChat",
     description: "EntropyChat - Real Time Communication",
     icons: {
-        icon: "/icon.svg",
+        icon: "/chaticon3.png",
     },
 };
 

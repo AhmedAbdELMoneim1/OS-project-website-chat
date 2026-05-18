@@ -34,6 +34,7 @@ export default function Login() {
         }
 
         try {
+            console.log(JSON.stringify({ email, password }));
             const res = await fetch(`${API_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -46,17 +47,21 @@ export default function Login() {
                 setLoginError(false);
                 setErrorMessage('');
                 const meRes = await fetch(`${API_URL}/me`, { credentials: 'include' });
+                console.log("error after me");
                 if (meRes.ok) {
                     const data = await meRes.json();
                     setAppState(prev => ({ ...prev, currentUser: data }))
                     router.push('/');
+                    console.log("error after ok");
                 }
             } else {
+                console.log("error after else");
                 setLoggingIn(false);
                 setLoginError(true);
                 setErrorMessage('Invalid email or password.');
             }
         } catch {
+            console.log("error after catch");
             setLoggingIn(false);
             setLoginError(true);
             setErrorMessage('Connection error. Try again.');
