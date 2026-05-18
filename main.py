@@ -246,8 +246,10 @@ async def add_chat(other_user_id: int,
         return {"chat_id": existing_chat_id}
 
     chat_id = await create_two_users_chat(db, user_id, other_user_id)
-    return {"chat_id": chat_id}
 
+    is_online = "online" if await r.get(f"user_sessions_number:{other_user_id}") else "offline"
+
+    return {"chat_id": chat_id, "is_online": is_online}
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class ConnectionManager:
