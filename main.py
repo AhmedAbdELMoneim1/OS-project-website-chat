@@ -249,6 +249,14 @@ async def add_chat(other_user_id: int,
 
     is_online = "online" if await r.get(f"user_sessions_number:{other_user_id}") else "offline"
 
+    # send socket to another user tell him there are new chat added
+    await websocket_manager.send_personal_message(
+        other_user_id,
+        {
+            "type": "add_chat",
+            "chat_id": chat_id,
+            "from_user_id": user_id})
+    
     return {"chat_id": chat_id, "is_online": is_online}
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
