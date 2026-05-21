@@ -23,7 +23,7 @@ from DataLayer.chats import (load_user_chats_with_last_msg_id, create_two_users_
 
 from DTO.schemas import (UserFullInf, ChatListResponse, UserLoginInf,
                          UserInfResponse, MessagesResponse, MessageCreate,
-                         UserFullInfResponse,  UserRegisterInf)
+                         UserFullInfResponse, UserRegisterInf)
 
 from passlib.context import CryptContext
 
@@ -64,9 +64,11 @@ async def get_user_session(session_id: str | None = Cookie(default=None)):
     return user_id
 
 app = FastAPI()
+# How to manage ThreadPool "maximum threads per worker"
+loop = asyncio.get_running_loop()
+loop.set_default_executor(ThreadPoolExecutor(max_workers=16))  # the normal in pool is 32 ... our server is too weak :)
 
-
-r : redis.Redis | None = None
+r: redis.Redis | None = None
 
 SESSION_TTL = 60 * 60 * 24 * 7 # "session to live" 60 sec * 60 min * 24 hours * 7 days
 RATE_LIMIT = 10
@@ -108,27 +110,23 @@ class CustomMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CustomMiddleware)
 
 allow_origins = [
-    "https://entropychat-4f269.web.app", # another deployment :)
-    "https://entropychat.netlify.app", # our frontend domain should be here
-    "http://localhost:3000",
-    "http://localhost:8000"
+    "https://entropychat-4f269.web.app",  # another deployment :)
+    "https://entropychat.netlify.app",  # our frontend domain should be here
+    "http://localhost:8000",
+    "http://localhost:3000"
 ]
 
 app.add_middleware(
     CORSMiddleware,  # Cross-Origin Resource Sharing
-    allow_origins=allow_origins, # should be out front only ... can localhost also
-    allow_credentials=True, # Indicate that cookies should be supported for cross-origin requests.
-    allow_methods=["*"], # like GET POST ...
+    allow_origins=allow_origins,  # should be out front only ... can localhost also
+    allow_credentials=True,  # Indicate that cookies should be supported for cross-origin requests.
+    allow_methods=["*"],  # like GET POST ...
     allow_headers=["*"],
 )
 
 @app.on_event("startup")
 async def startup():
     global r
-    # How to manage ThreadPool "maximum threads per worker"
-    loop = asyncio.get_running_loop()
-    loop.set_default_executor(ThreadPoolExecutor(max_workers=16)) # the normal in pool is 32 ... our server is too weak :)
-
     redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
     r = redis.Redis(connection_pool=redis_pool)
     # clean the memory before start
@@ -146,10 +144,10 @@ async def root():
 
 @app.post("/login")
 async def login(
-            user_credentials: UserLoginInf,
-            response: Response, # to create the cookie that manage the session in user browser
-            db: AsyncSession = Depends(get_db)
-    ):
+        user_credentials: UserLoginInf,
+        response: Response,  # to create the cookie that manage the session in user browser
+        db: AsyncSession = Depends(get_db)
+):
     user = await check_user(db, user_credentials.email)
 
     if not user or not await verify_password(user_credentials.password, user.password_hash):
@@ -158,7 +156,7 @@ async def login(
             detail="Invalid eail or password"
         )
 
-    session_id = str(uuid.uuid4()) # create a session id
+    session_id = str(uuid.uuid4())  # create a session id
 
     # set with expire
     await r.setex(f"session:{session_id}", SESSION_TTL, user.user_id)
@@ -168,8 +166,8 @@ async def login(
         value=session_id,
         httponly=True,
         max_age=SESSION_TTL,
-        samesite="lax",  # lax if front and back in same server if not use none but u must use secure with it
-        secure=False  # Ture in real deployment in https not http :)
+        samesite="none",  # lax if front and back in same server if not use none but u must use secure with it
+        secure=True  # Ture in real deployment in https not http :)
     )
 
     return {"message": "Login successful"}
@@ -223,7 +221,6 @@ async def load_chats(user_id: int = Depends(get_user_session), db: AsyncSession 
 @app.get("/loadUserChat", response_model=List[MessagesResponse])
 async def loadUserChat(chat_id: int, from_datetime: str,
                        user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
-
     # must check privacy --> chat_id into user chats or not ?!
     if not await check_user_in_chat(db, user_id, chat_id):
         raise HTTPException(
@@ -233,7 +230,7 @@ async def loadUserChat(chat_id: int, from_datetime: str,
     msgs = await load_chat_messages(db, chat_id=chat_id, from_datetime=from_datetime)
     return msgs
 
-@app.post("/addChat") # just create a chat after check if exist
+@app.post("/addChat")  # just create a chat after check if exist
 async def add_chat(other_user_id: int,
                    user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
 
@@ -258,7 +255,7 @@ async def add_chat(other_user_id: int,
             "type": "add_chat",
             "chat_id": chat_id,
             "from_user_id": user_id})
-    
+
     return {"chat_id": chat_id, "is_online": is_online}
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -397,7 +394,7 @@ async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(ge
 
 @app.post("/sendMessages", response_model=MessagesResponse)
 async def user_send_message(msg_data: MessageCreate,
-                       user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
+                            user_id: int = Depends(get_user_session), db: AsyncSession = Depends(get_db)):
     if not await check_user_in_chat(db, user_id, msg_data.chat_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
