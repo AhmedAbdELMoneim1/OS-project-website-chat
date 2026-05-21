@@ -129,6 +129,10 @@ async def startup():
     global r
     redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
     r = redis.Redis(connection_pool=redis_pool)
+
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=16))  # the normal in pool is 32 ... our server is too weak :)
+
     # clean the memory before start
     await r.flushall()
 
