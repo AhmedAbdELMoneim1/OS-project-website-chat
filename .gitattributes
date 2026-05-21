@@ -1,2 +1,2 @@
-front_versions/*.html linguist-vendored
+backend/front_versions/*.html linguist-vendored
 slides/*.html linguist-vendored

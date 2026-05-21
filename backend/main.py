@@ -64,9 +64,6 @@ async def get_user_session(session_id: str | None = Cookie(default=None)):
     return user_id
 
 app = FastAPI()
-# How to manage ThreadPool "maximum threads per worker"
-loop = asyncio.get_running_loop()
-loop.set_default_executor(ThreadPoolExecutor(max_workers=16)) # the normal in pool is 32 ... our server is too weak :)
 
 
 r : redis.Redis | None = None
@@ -113,6 +110,7 @@ app.add_middleware(CustomMiddleware)
 allow_origins = [
     "https://entropychat-4f269.web.app", # another deployment :)
     "https://entropychat.netlify.app", # our frontend domain should be here
+    "http://localhost:3000",
     "http://localhost:8000"
 ]
 
@@ -127,6 +125,10 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     global r
+    # How to manage ThreadPool "maximum threads per worker"
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=16)) # the normal in pool is 32 ... our server is too weak :)
+
     redis_pool = redis.ConnectionPool.from_url("redis://localhost", decode_responses=True)
     r = redis.Redis(connection_pool=redis_pool)
     # clean the memory before start
@@ -166,8 +168,8 @@ async def login(
         value=session_id,
         httponly=True,
         max_age=SESSION_TTL,
-        samesite="none",  # lax if front and back in same server if not use none but u must use secure with it
-        secure=True  # Ture in real deployment in https not http :)
+        samesite="lax",  # lax if front and back in same server if not use none but u must use secure with it
+        secure=False  # Ture in real deployment in https not http :)
     )
 
     return {"message": "Login successful"}

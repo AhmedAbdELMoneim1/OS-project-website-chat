@@ -28,6 +28,17 @@ create table chats (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+create table chats_messages(
+                               message_id INT AUTO_INCREMENT PRIMARY KEY ,
+                               chat_id INT,
+                               from_user_id INT,
+                               message_text VARCHAR(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                               FOREIGN KEY (from_user_id) REFERENCES users_inf(user_id),
+                               FOREIGN KEY (chat_id) REFERENCES chats(chat_id)
+);
+
 create table chat_participants (
     chat_id INT,
     user_id INT,
@@ -37,17 +48,6 @@ create table chat_participants (
     FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users_inf(user_id) ON DELETE CASCADE,
     FOREIGN KEY (last_message_id) REFERENCES chats_messages(message_id)
-);
-
-create table chats_messages(
-    message_id INT AUTO_INCREMENT PRIMARY KEY ,
-    chat_id INT,
-    from_user_id INT,
-    message_text VARCHAR(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (from_user_id) REFERENCES users_inf(user_id),
-    FOREIGN KEY (chat_id) REFERENCES chats(chat_id)
 );
 
 CREATE INDEX ix_users_login_inf_email ON users_login_inf(email);

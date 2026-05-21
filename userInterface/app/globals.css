@@ -1,0 +1,269 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+    /* Colors mapping to existing variables */
+    --color-dark: var(--bg-dark);
+    --color-mid: var(--bg-mid);
+    --color-light: var(--bg-light);
+    --color-input: var(--bg-input);
+    --color-hover: var(--bg-hover);
+    --color-active: var(--bg-active);
+    --color-selected: var(--bg-selected);
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+
+    --color-primary: var(--text-primary);
+    --color-secondary: var(--text-secondary);
+    --color-muted: var(--text-muted);
+    --color-link: var(--text-link);
+
+    --color-brand: var(--brand);
+    --color-brand-hover: var(--brand-hover);
+    --color-brand-light: var(--brand-light);
+
+    --color-online: var(--online);
+    --color-danger: var(--danger);
+    --color-warn: var(--warn);
+    --color-mention: var(--mention);
+
+    --color-border: var(--border);
+
+    /* Shadows mapping */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+    /* Radius mapping */
+    --radius-sm: 4px;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --radius-full: 9999px;
+
+    /* Spacing/Widths */
+    --spacing-sidebar: 240px;
+
+    /* Typography */
+    --font-primary: 'gg Sans', 'Noto Sans Arabic', system-ui, sans-serif;
+}
+
+:root {
+    --bg-dark: #1e1e20;
+    --bg-mid: #353639;
+    --bg-light: #383a40;
+    --bg-input: #404249;
+    --bg-hover: #3e4148;
+    --bg-active: #404249;
+    --bg-selected: rgba(88, 101, 242, .2);
+
+    --text-primary: #dbdee1;
+    --text-secondary: #949ba4;
+    --text-muted: #4e5058;
+    --text-link: #00a8fc;
+
+    --brand: #5865f2;
+    --brand-hover: #4752c4;
+    --brand-light: rgba(88, 101, 242, .15);
+
+    --online: #23a55a;
+    --danger: #f23f43;
+    --warn: #f0b232;
+    --mention: rgba(250, 168, 26, .1);
+
+    --border: oklch(0.9 0 0 / 10%);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, .3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, .4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, .5);
+
+    --radius-sm: 4px;
+    --radius: 0.625rem;
+    --radius-lg: 12px;
+    --radius-full: 9999px;
+
+    --sidebar-w: 240px;
+    --font: 'gg Sans', 'Noto Sans Arabic', system-ui, sans-serif;
+    --transition: 0.12s ease;
+
+    --background: oklch(0.25 0 0);
+    --foreground: oklch(0.9 0 0);
+    --card: oklch(0.3 0 0);
+    --card-foreground: oklch(0.9 0 0);
+    --popover: oklch(0.3 0 0);
+    --popover-foreground: oklch(0.9 0 0);
+    --primary: oklch(0.85 0 0);
+    --primary-foreground: oklch(0.3 0 0);
+    --secondary: oklch(0.35 0 0);
+    --secondary-foreground: oklch(0.9 0 0);
+    --muted: oklch(0.35 0 0);
+    --muted-foreground: oklch(0.6 0 0);
+    --accent: oklch(0.35 0 0);
+    --accent-foreground: oklch(0.9 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --input: oklch(0.9 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.3 0 0);
+    --sidebar-foreground: oklch(0.9 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.9 0 0);
+    --sidebar-accent: oklch(0.35 0 0);
+    --sidebar-accent-foreground: oklch(0.9 0 0);
+    --sidebar-border: oklch(0.9 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+    * {
+        /* @apply border-border outline-ring/50; */
+    }
+
+    html,
+    body {
+        /* @apply h-full overflow-hidden; */
+    }
+
+    body {
+        /* @apply font-sans bg-background text-foreground antialiased; */
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(219, 222, 225, .1);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(219, 222, 225, .2);
+}
+
+/* Animations */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin-slow {
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes msgIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-msg-in {
+    animation: msgIn .15s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn .15s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.animate-slide-up {
+    animation: slideUp .18s ease;
+}
+
+/* Utilities for scrollbar hiding */
+@layer utilities {
+    .scrollbar-none {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .scrollbar-none::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+.light {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.2 0 0 / 10%);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+
+    /* SideBar specific variables in light mode */
+    --bg-dark: #f2f3f5;
+    --bg-mid: #ffffff;
+    --bg-light: #ebedef;
+    --bg-input: #e3e5e8;
+    --bg-hover: #e3e5e8;
+    --bg-active: #d4d7dc;
+    --bg-selected: rgba(88, 101, 242, 0.1);
+
+    --text-primary: #060607;
+    --text-secondary: #4e5058;
+    --text-muted: #5e6068;
+    --text-link: #0068e0;
+
+    --border: rgba(0, 0, 0, 0.08);
+}
