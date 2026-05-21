@@ -65,8 +65,6 @@ async def get_user_session(session_id: str | None = Cookie(default=None)):
 
 app = FastAPI()
 # How to manage ThreadPool "maximum threads per worker"
-loop = asyncio.get_running_loop()
-loop.set_default_executor(ThreadPoolExecutor(max_workers=16))  # the normal in pool is 32 ... our server is too weak :)
 
 r: redis.Redis | None = None
 
