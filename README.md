@@ -110,8 +110,8 @@ source venv/bin/activate  # On Windows use: venv\Scripts\activate
 # Install requirements
 pip install -r requirements.txt
 
-# Start the development server
-uvicorn main:app --reload
+# Start the development server and we can now assign workers number 
+uvicorn main:app --port 8000 --host 0.0.0.0 --workers 4
 ```
 
 Note on Cookie Security for Localhost: To successfully authenticate over localhost (HTTP), you must modify the login endpoint in main.py. Ensure the authentication cookie parameters are set to allow local cross-origin requests:
