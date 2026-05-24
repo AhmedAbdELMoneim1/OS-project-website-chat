@@ -7,7 +7,6 @@ from secrets import choice
 load_dotenv()
 
 async def send_email(recipient: str, otp: str):
-    print(recipient)
     message = EmailMessage()
     message["Subject"] = "Streamline Verification Code"
     message.set_content(f"({otp}) is you Streamline verification code.")
