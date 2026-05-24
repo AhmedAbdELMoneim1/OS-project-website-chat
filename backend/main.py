@@ -81,6 +81,12 @@ class CustomMiddleware(BaseHTTPMiddleware):
         # limit rate before go to the endpoint
         client_host_ip = f"client_host:{request.client.host}"
 
+        if await r.get(f"ban_forever:{client_host_ip}"):
+            return JSONResponse(  # <-- NOT raise HTTPException as it handles only in endpoints not middleware
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"detail": "u banned :)"},
+            )
+
         if await r.get(f"ban:{client_host_ip}"):
             return JSONResponse(  # <-- NOT raise HTTPException as it handles only in endpoints not middleware
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -101,6 +107,16 @@ class CustomMiddleware(BaseHTTPMiddleware):
             )
 
         response = await call_next(request)
+
+        # mmm... check bad users
+        if response.status_code == status.HTTP_404_NOT_FOUND:
+            # normal user can add chat and not exits so 404 is normal ...
+            session_id = request.cookies.get("session_id")
+
+            # now this person trying another endpoint "bad user" block forever
+            if not session_id:
+                await r.set(f"ban_forever:{client_host_ip}", 1)
+
         return response
 
 # when u add a middleware ... first added is nearest to code endpoints to executes
